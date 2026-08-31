@@ -3,6 +3,8 @@ package dsl
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,21 +52,43 @@ func NewEngine(cfg *config.Config) (*Engine, error) {
 	sm := statemachine.NewOrderStateMachine()
 	fixMgr := fixtures.NewFixtureManager(clientAPI, restAPI, courierAPI, adminAPI)
 	fixMgr.SetVerificationCode(cfg.VerificationCode)
+	fixMgr.SetCity(cfg.FixtureCity)
+	fixMgr.SetCourierGroupID(cfg.FixtureCourierGroupID)
+	fixMgr.SetCoordinates(cfg.FixtureLatitude, cfg.FixtureLongitude)
+
+	// A pinned client phone trades isolation for a stable identity. USE_TEST_PHONE
+	// selects the backend's DEBUG-only backdoor number; FIXTURE_CLIENT_PHONE wins
+	// when both are set, since it is the more specific instruction.
+	switch {
+	case cfg.FixtureClientPhone != "":
+		fixMgr.PinClientPhone(cfg.FixtureClientPhone)
+	case cfg.UseTestPhone:
+		fixMgr.PinClientPhone(fixtures.ReservedTestPhone)
+	}
+
+	if cfg.HTTPDebug {
+		httpClient.SetDebug(true)
+	}
 
 	// Preset tokens from env: register them as active sessions and let fixtures
 	// reuse them without register/login calls (isolation is knowingly sacrificed
 	// when running against a real backend with pre-provisioned identities).
-	if cfg.ClientToken != "" {
-		sessionMgr.AddToken("client", "Preset (env)", "", cfg.ClientToken, true)
-		fixMgr.SetPresetToken("client", cfg.ClientToken)
-	}
-	if cfg.RestToken != "" {
-		sessionMgr.AddToken("rest", "Preset (env)", "", cfg.RestToken, true)
-		fixMgr.SetPresetToken("rest", cfg.RestToken)
-	}
-	if cfg.CourierToken != "" {
-		sessionMgr.AddToken("courier", "Preset (env)", "", cfg.CourierToken, true)
-		fixMgr.SetPresetToken("courier", cfg.CourierToken)
+	for role, token := range map[string]string{
+		"client":  cfg.ClientToken,
+		"rest":    cfg.RestToken,
+		"courier": cfg.CourierToken,
+		"admin":   cfg.AdminToken,
+	} {
+		if token == "" {
+			continue
+		}
+		sessionMgr.AddToken(role, "Preset (env)", "", token, true)
+		// A token that does not match the role it was configured under is
+		// reported rather than swallowed: tests would otherwise run as the
+		// wrong identity and still look green.
+		if err := fixMgr.BindAccount(role, "Preset (env)", "", token); err != nil {
+			log.Printf("[ENGINE] %s_TOKEN не привязан к роли: %v", strings.ToUpper(role), err)
+		}
 	}
 
 	return &Engine{
@@ -102,7 +126,11 @@ type TestContext struct {
 	RestID       string
 	CourierID    string
 	AdminToken   string
-	Data         map[string]interface{}
+	// Order is the prepared ordering situation (restaurant, dish, address,
+	// filled cart). SetupAllRoles builds it, and OrderRequest() turns it into
+	// a valid create-order body.
+	Order *fixtures.OrderContext
+	Data  map[string]interface{}
 }
 
 // Scenario starts a new declarative test scenario
@@ -169,13 +197,14 @@ func (c *TestContext) SetupAllRoles() {
 		c.AdminToken = token
 	}
 
-	// Client Auth
-	c.ClientPhone, _, err = c.Engine.Fixtures.CreateUniqueClient(c.GoCtx)
-	require.NoError(c.t, err, "Client fixture creation must succeed")
-
-	// Restaurant Auth
-	c.RestID, _, err = c.Engine.Fixtures.CreateUniqueRestaurant(c.GoCtx)
-	require.NoError(c.t, err, "Restaurant fixture creation must succeed")
+	// Client + Restaurant, prepared far enough that an order can be placed:
+	// the restaurant order is assembled from the client's server-side cart, so
+	// a menu, an address and a filled cart are preconditions, not extras.
+	order, err := c.Engine.Fixtures.PrepareRestaurantOrder(c.GoCtx)
+	require.NoError(c.t, err, "Order context preparation must succeed")
+	c.Order = order
+	c.ClientPhone = order.ClientPhone
+	c.RestID = order.RestID
 
 	// Courier Auth
 	c.CourierID, _, err = c.Engine.Fixtures.CreateUniqueCourier(c.GoCtx)

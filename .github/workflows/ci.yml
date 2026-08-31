@@ -57,7 +57,7 @@ jobs:
 
           RUN_ID=$(curl -sf --max-time 15 -X POST "$ADMIN_URL/api/runs" \
             -H 'Content-Type: application/json' \
-            -d '{"suites":["flow_a","flow_b","cancellation","idempotency","security_rbac","negative_sm"]}' \
+            -d '{"suites":["flow_a","flow_b","cancellation","idempotency","security_rbac","auth_otp","negative_sm"]}' \
             | jq -r '.id // .run_id // empty')
           echo "Запущен батч, run_id=$RUN_ID"
 

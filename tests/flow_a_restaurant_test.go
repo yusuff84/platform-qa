@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"locali-e2e-engine/pkg/client"
 	"locali-e2e-engine/pkg/dsl"
 	"locali-e2e-engine/pkg/events"
 	"locali-e2e-engine/pkg/statemachine"
@@ -18,13 +17,10 @@ func Test_FlowA_RestaurantOrderFullCycle(t *testing.T) {
 			ctx.OrderType = statemachine.OrderTypeRestaurant
 		}).
 		When("Step 1: Client creates an order from the restaurant", func(ctx *dsl.TestContext) {
-			req := client.CreateRestaurantOrderRequest{
-				RestID:          ctx.RestID,
-				DeliveryAddress: "Москва, Тверская 15, кв. 10",
-				PaymentType:     "card",
-				Comment:         "Оставить у двери",
-				DishIdArray:     []int{101, 102},
-			}
+			// The order body carries no line items: the backend assembles it
+			// from the cart that SetupAllRoles filled.
+			req := ctx.Order.OrderRequest()
+			req.Comment = "Оставить у двери"
 
 			order, err := ctx.Engine.ClientAPI.CreateRestaurantOrder(ctx.GoCtx, req)
 			require.NoError(t, err, "Client order creation failed")
@@ -96,7 +92,13 @@ func Test_FlowA_RestaurantOrderFullCycle(t *testing.T) {
 		}).
 		Then("Order status must transition to DELIVERED and history verified", func(ctx *dsl.TestContext) {
 			ctx.AssertOrderStatus(statemachine.StatusDelivered, statemachine.RoleCourier)
-			require.Equal(t, "complete", ctx.CurrentOrder.Status)
+
+			// change-status does not return the order, so the terminal state is
+			// read back from the backend instead of trusted from the response.
+			// A delivered order is no longer active, hence the full history.
+			finalOrder, err := ctx.Engine.ClientAPI.GetFinalOrder(ctx.GoCtx, ctx.CurrentOrder.OrderID)
+			require.NoError(t, err, "Reading the delivered order back must succeed")
+			require.Equal(t, "complete", finalOrder.Status, "заказ должен быть сохранён завершённым")
 
 			// Validate complete recorded history path
 			history := ctx.Engine.StateMachine.GetHistory(ctx.CurrentOrder.OrderID)

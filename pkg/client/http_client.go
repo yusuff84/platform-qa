@@ -50,7 +50,9 @@ func (c *HTTPClient) Request(ctx context.Context, method, path, token string, bo
 	return c.RequestWithHeaders(ctx, method, path, token, nil, body, responseOut)
 }
 
-// RequestWithHeaders executes an HTTP request with custom headers
+// RequestWithHeaders executes an HTTP request with custom headers.
+// Any response with status >= 400 is returned as a typed *APIError alongside
+// the response, so callers can assert on status/code instead of parsing text.
 func (c *HTTPClient) RequestWithHeaders(ctx context.Context, method, path, token string, headers map[string]string, body interface{}, responseOut interface{}) (*http.Response, error) {
 	fullURL := fmt.Sprintf("%s%s", c.baseURL, path)
 	var bodyReader io.Reader
@@ -82,7 +84,7 @@ func (c *HTTPClient) RequestWithHeaders(ctx context.Context, method, path, token
 	}
 
 	if c.debug {
-		log.Printf("[HTTP >>>] %s %s | Token: %t | Body: %s", method, fullURL, token != "", string(reqBodyBytes))
+		log.Printf("[HTTP >>>] %s %s | Token: %t | Body: %s", method, fullURL, token != "", Redact(reqBodyBytes))
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -97,12 +99,18 @@ func (c *HTTPClient) RequestWithHeaders(ctx context.Context, method, path, token
 	}
 
 	if c.debug {
-		log.Printf("[HTTP <<<] %s %s -> Status: %d | Body: %s", method, fullURL, resp.StatusCode, string(respBodyBytes))
+		log.Printf("[HTTP <<<] %s %s -> Status: %d | Body: %s", method, fullURL, resp.StatusCode, Redact(respBodyBytes))
 	}
 
-	// If response is error status (>= 400), return with details
-	if resp.StatusCode >= 400 {
-		return resp, fmt.Errorf("api error status %d: %s", resp.StatusCode, string(respBodyBytes))
+	// Anything outside 2xx is a failure, typed so callers can assert on it.
+	//
+	// 3xx counts: several Locali handlers report errors with `e.status = 301`
+	// (loginAdmin, loginRest, regCourier), and Go only leaves a 3xx status
+	// visible here when there is no Location header to follow — i.e. exactly
+	// that error convention. Treating it as success used to hand the caller an
+	// error message where a token was expected.
+	if resp.StatusCode >= 300 {
+		return resp, newAPIError(method, path, resp, respBodyBytes)
 	}
 
 	if responseOut != nil && len(respBodyBytes) > 0 {
@@ -114,7 +122,7 @@ func (c *HTTPClient) RequestWithHeaders(ctx context.Context, method, path, token
 		}
 
 		if err := json.Unmarshal(respBodyBytes, responseOut); err != nil {
-			return resp, fmt.Errorf("failed to unmarshal response [%s]: %w", string(respBodyBytes), err)
+			return resp, fmt.Errorf("failed to unmarshal response [%s]: %w", Redact(respBodyBytes), err)
 		}
 	}
 

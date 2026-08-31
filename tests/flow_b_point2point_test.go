@@ -1,30 +1,32 @@
 package tests
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"locali-e2e-engine/pkg/client"
 	"locali-e2e-engine/pkg/dsl"
 	"locali-e2e-engine/pkg/events"
 	"locali-e2e-engine/pkg/statemachine"
 )
 
 func Test_FlowB_IndependentOrderPointAToPointB(t *testing.T) {
+	// Parcel delivery runs on a platform working window (10:00–23:00). Outside
+	// it the backend refuses every parcel with 422 OUTSIDE_WORKING_HOURS — the
+	// platform is closed, which is not a defect to report as a failure.
+	requireParcelWindowOpen(t)
+
 	testEngine.Scenario(t, "Flow B: Independent Point A to Point B Courier Parcel Delivery").
 		Given("Client, Courier and Director identities are initialized", func(ctx *dsl.TestContext) {
 			ctx.SetupAllRoles()
 			ctx.OrderType = statemachine.OrderTypeIndependent
 		}).
 		When("Step 1: Client creates an independent parcel delivery order", func(ctx *dsl.TestContext) {
-			req := client.CreateIndependentOrderRequest{
-				AddressA:    "Москва, ул. Ленина, д. 5 (Точка А)",
-				AddressB:    "Москва, пр-т Мира, д. 88 (Точка Б)",
-				Comment:     "Передать конверт с документами",
-				PaymentType: "card",
-				Price:       450.0,
-			}
+			// A parcel is addressed by coordinates and names its recipient
+			// and cargo type; free-text A/B addresses are no longer accepted.
+			req := ctx.Engine.Fixtures.ParcelRequest("")
+			req.Comment = "Передать конверт с документами"
 
 			order, err := ctx.Engine.ClientAPI.CreateIndependentOrder(ctx.GoCtx, req)
 			require.NoError(t, err, "Client independent order creation failed")
@@ -82,4 +84,17 @@ func Test_FlowB_IndependentOrderPointAToPointB(t *testing.T) {
 			}
 			require.Equal(t, expectedPath, history, "Independent order must have followed Flow B path")
 		})
+}
+
+// requireParcelWindowOpen skips the calling test when the platform is not
+// accepting parcel orders at this hour.
+func requireParcelWindowOpen(t *testing.T) {
+	t.Helper()
+	available, window, err := testEngine.Fixtures.ParcelOrderingAvailable(context.Background())
+	if err != nil {
+		t.Fatalf("не удалось узнать окно приёма посылок: %v", err)
+	}
+	if !available {
+		t.Skipf("платформа не принимает посылки вне окна %s — прогон возможен только внутри него", window)
+	}
 }

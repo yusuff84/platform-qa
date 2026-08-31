@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,12 +17,7 @@ func Test_CancellationLifecycle_EdgeCases(t *testing.T) {
 				ctx.SetupAllRoles()
 			}).
 			When("Client creates order", func(ctx *dsl.TestContext) {
-				req := client.CreateRestaurantOrderRequest{
-					RestID:          ctx.RestID,
-					DeliveryAddress: "ул. Новая, д. 1",
-					PaymentType:     "card",
-				}
-				order, err := ctx.Engine.ClientAPI.CreateRestaurantOrder(ctx.GoCtx, req)
+				order, err := ctx.Engine.ClientAPI.CreateRestaurantOrder(ctx.GoCtx, ctx.Order.OrderRequest())
 				require.NoError(t, err)
 				ctx.CurrentOrder = order
 			}).
@@ -40,15 +36,11 @@ func Test_CancellationLifecycle_EdgeCases(t *testing.T) {
 			})
 	})
 
-	t.Run("Client attempts to cancel order during COOKING stage -> Rejected (403)", func(t *testing.T) {
+	t.Run("Client attempts to cancel order during COOKING stage -> Rejected (409)", func(t *testing.T) {
 		testEngine.Scenario(t, "Forbidden Client Cancellation at COOKING").
 			Given("Order in COOKING status", func(ctx *dsl.TestContext) {
 				ctx.SetupAllRoles()
-				order, err := ctx.Engine.ClientAPI.CreateRestaurantOrder(ctx.GoCtx, client.CreateRestaurantOrderRequest{
-					RestID:          ctx.RestID,
-					DeliveryAddress: "ул. Тверская 10",
-					PaymentType:     "card",
-				})
+				order, err := ctx.Engine.ClientAPI.CreateRestaurantOrder(ctx.GoCtx, ctx.Order.OrderRequest())
 				require.NoError(t, err)
 				ctx.CurrentOrder = order
 
@@ -59,7 +51,12 @@ func Test_CancellationLifecycle_EdgeCases(t *testing.T) {
 			When("Client attempts to cancel order", func(ctx *dsl.TestContext) {
 				err := ctx.Engine.ClientAPI.CancelOrder(ctx.GoCtx, ctx.CurrentOrder.OrderID, "Хочу отменить")
 				require.Error(t, err, "Client should NOT be able to cancel cooking order directly")
-				require.Contains(t, err.Error(), "403")
+				// The refusal is a state conflict, not an authorization one: the
+				// client owns the order, the status is what forbids cancelling.
+				require.True(t, client.IsStatus(err, http.StatusConflict), "ожидался 409, получено: %v", err)
+				apiErr, ok := client.AsAPIError(err)
+				require.True(t, ok)
+				require.Equal(t, "CANCEL_NOT_ALLOWED", apiErr.Code)
 				t.Logf("    ✓ Correctly rejected client cancellation when order is cooking: %v", err)
 			})
 	})

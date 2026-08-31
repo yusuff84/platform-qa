@@ -39,6 +39,11 @@ type SessionManager struct {
 	activeRestID    string
 	activeCourierID string
 	activeAdminID   string
+
+	// testBindings maps a canonical role to the profile the operator picked
+	// for test runs. A role without a binding keeps generating a fresh
+	// identity per run, which is the isolated default.
+	testBindings map[string]string
 }
 
 // NewSessionManager creates a new multi-role multi-profile session manager
@@ -47,8 +52,9 @@ func NewSessionManager(httpClient *HTTPClient) *SessionManager {
 		httpClient:  httpClient,
 		clientPool:  make(map[string]*TokenProfile),
 		restPool:    make(map[string]*TokenProfile),
-		courierPool: make(map[string]*TokenProfile),
-		adminPool:   make(map[string]*TokenProfile),
+		courierPool:  make(map[string]*TokenProfile),
+		adminPool:    make(map[string]*TokenProfile),
+		testBindings: make(map[string]string),
 	}
 
 	return sm
@@ -213,7 +219,13 @@ func (sm *SessionManager) GetVault() map[string]interface{} {
 		admins = append(admins, p)
 	}
 
+	bindings := make(map[string]string, len(sm.testBindings))
+	for role, id := range sm.testBindings {
+		bindings[role] = id
+	}
+
 	return map[string]interface{}{
+		"testAccounts":    bindings,
 		"clients":         clients,
 		"rests":           rests,
 		"couriers":        couriers,
@@ -230,6 +242,9 @@ func (sm *SessionManager) GetVault() map[string]interface{} {
 type VaultSnapshot struct {
 	Profiles []*TokenProfile   `json:"profiles"`
 	Active   map[string]string `json:"active"` // canonical role -> profile ID
+	// TestBindings records which profile each role uses in test runs. A role
+	// absent here generates a fresh identity per run.
+	TestBindings map[string]string `json:"testBindings,omitempty"`
 }
 
 // Snapshot returns a deep copy of all pools and active pointers. The copy is
@@ -247,6 +262,11 @@ func (sm *SessionManager) Snapshot() *VaultSnapshot {
 		}
 	}
 
+	bindings := make(map[string]string, len(sm.testBindings))
+	for role, id := range sm.testBindings {
+		bindings[role] = id
+	}
+
 	return &VaultSnapshot{
 		Profiles: profiles,
 		Active: map[string]string{
@@ -255,6 +275,7 @@ func (sm *SessionManager) Snapshot() *VaultSnapshot {
 			"courier": sm.activeCourierID,
 			"admin":   sm.activeAdminID,
 		},
+		TestBindings: bindings,
 	}
 }
 
@@ -274,6 +295,7 @@ func (sm *SessionManager) Restore(snap *VaultSnapshot) {
 	sm.activeRestID = ""
 	sm.activeCourierID = ""
 	sm.activeAdminID = ""
+	sm.testBindings = make(map[string]string)
 
 	if snap == nil {
 		return
@@ -316,6 +338,19 @@ func (sm *SessionManager) Restore(snap *VaultSnapshot) {
 			sm.courierPool[np.ID] = &np
 		case "admin":
 			sm.adminPool[np.ID] = &np
+		}
+	}
+
+	// Bindings referencing profiles that did not survive the snapshot are
+	// dropped: a role pointing at a missing account must fall back to
+	// generating one, not fail every run.
+	for role, id := range snap.TestBindings {
+		canonical := CanonicalRole(role)
+		if canonical == "" || id == "" {
+			continue
+		}
+		if sm.findProfileLocked(canonical, id) != nil {
+			sm.testBindings[canonical] = id
 		}
 	}
 
@@ -533,4 +568,100 @@ func parseJWTPayload(jwtToken string) map[string]interface{} {
 	}
 
 	return payload
+}
+
+// CanonicalRole normalizes the role aliases used across the engine and the UI.
+// It returns "" for anything unrecognised.
+func CanonicalRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "client":
+		return "client"
+	case "rest", "restaurant":
+		return "rest"
+	case "courier":
+		return "courier"
+	case "admin", "director":
+		return "admin"
+	}
+	return ""
+}
+
+func (sm *SessionManager) poolLocked(canonical string) map[string]*TokenProfile {
+	switch canonical {
+	case "client":
+		return sm.clientPool
+	case "rest":
+		return sm.restPool
+	case "courier":
+		return sm.courierPool
+	case "admin":
+		return sm.adminPool
+	}
+	return nil
+}
+
+func (sm *SessionManager) findProfileLocked(canonical, id string) *TokenProfile {
+	pool := sm.poolLocked(canonical)
+	if pool == nil {
+		return nil
+	}
+	return pool[id]
+}
+
+// Profile returns a copy of one stored profile.
+func (sm *SessionManager) Profile(role, id string) (*TokenProfile, bool) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	p := sm.findProfileLocked(CanonicalRole(role), id)
+	if p == nil {
+		return nil, false
+	}
+	cp := *p
+	cp.Payload = clonePayload(p.Payload)
+	return &cp, true
+}
+
+// SetTestBinding designates which stored profile a role uses in test runs.
+// An empty id clears the binding, returning that role to generating a fresh
+// identity per run.
+func (sm *SessionManager) SetTestBinding(role, profileID string) (*TokenProfile, error) {
+	canonical := CanonicalRole(role)
+	if canonical == "" {
+		return nil, fmt.Errorf("неизвестная роль: %s", role)
+	}
+
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if profileID == "" {
+		delete(sm.testBindings, canonical)
+		return nil, nil
+	}
+
+	p := sm.findProfileLocked(canonical, profileID)
+	if p == nil {
+		return nil, fmt.Errorf("профиль %s для роли %s не найден", profileID, canonical)
+	}
+	sm.testBindings[canonical] = profileID
+
+	cp := *p
+	cp.Payload = clonePayload(p.Payload)
+	return &cp, nil
+}
+
+// TestBindings returns the bound profile per role, resolved to live profiles.
+// Roles whose binding no longer resolves are omitted.
+func (sm *SessionManager) TestBindings() map[string]*TokenProfile {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	out := make(map[string]*TokenProfile, len(sm.testBindings))
+	for role, id := range sm.testBindings {
+		if p := sm.findProfileLocked(role, id); p != nil {
+			cp := *p
+			cp.Payload = clonePayload(p.Payload)
+			out[role] = &cp
+		}
+	}
+	return out
 }

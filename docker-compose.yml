@@ -20,9 +20,29 @@ services:
       - ADMIN_TOKEN=${ADMIN_TOKEN:-}
       - VERIFICATION_CODE=${VERIFICATION_CODE:-}
       - DATA_DIR=/app/data
+      # Fixture settings: city and coordinates must match the supportedCities
+      # of the stand's active Locali tariff, otherwise delivery is refused.
+      - FIXTURE_CITY=${FIXTURE_CITY:-}
+      - FIXTURE_LATITUDE=${FIXTURE_LATITUDE:-}
+      - FIXTURE_LONGITUDE=${FIXTURE_LONGITUDE:-}
+      - FIXTURE_COURIER_GROUP_ID=${FIXTURE_COURIER_GROUP_ID:-}
+      - FIXTURE_CLIENT_PHONE=${FIXTURE_CLIENT_PHONE:-}
+      - USE_TEST_PHONE=${USE_TEST_PHONE:-}
+      - HTTP_DEBUG=${HTTP_DEBUG:-}
     volumes:
       - e2e-data:/app/data
     restart: unless-stopped
+    networks:
+      - default
+      # The local Locali backend publishes 3005 on the host loopback only, so
+      # it is unreachable through host.docker.internal. Joining its compose
+      # network makes it addressable as http://lokaly-back:3005.
+      - locali-backend
+
+networks:
+  locali-backend:
+    external: true
+    name: locali-app-backend_default
 
 volumes:
   e2e-data:

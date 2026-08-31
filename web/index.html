@@ -550,6 +550,77 @@
         </div>
       </div>
 
+      <!-- Аккаунты, под которыми идут прогоны -->
+      <div class="bg-darkcard border border-darkborder rounded-xl p-5 space-y-4">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-darkborder pb-3">
+          <div class="flex items-start space-x-2.5">
+            <div class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs shrink-0">
+              <i class="fa-solid fa-user-check"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-sm text-white">Аккаунты для прогонов</h3>
+              <p class="text-[11px] text-slate-400 leading-snug mt-0.5 max-w-2xl">
+                По умолчанию каждый прогон создаёт новые аккаунты — так тесты не мешают друг другу.
+                Выберите профиль, чтобы сьюты шли под конкретным аккаунтом: это нужно, когда на стенде
+                есть подготовленные вручную данные, которых у сгенерированной фикстуры не будет.
+              </p>
+            </div>
+          </div>
+          <button onclick="saveFixtureAccounts(this)" class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition flex items-center space-x-1.5 shrink-0">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Применить</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-semibold text-green-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-mobile-screen"></i> Клиент
+            </label>
+            <select id="fixtureAccountClient" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-xs text-white focus:border-green-500/50 focus:outline-none">
+              <option value="">Создавать нового</option>
+            </select>
+            <div id="fixtureAccountClientHint" class="text-[10px] text-slate-500 font-mono truncate"></div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-semibold text-amber-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-utensils"></i> Ресторан
+            </label>
+            <select id="fixtureAccountRest" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-xs text-white focus:border-amber-500/50 focus:outline-none">
+              <option value="">Создавать нового</option>
+            </select>
+            <div id="fixtureAccountRestHint" class="text-[10px] text-slate-500 font-mono truncate"></div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-semibold text-cyan-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-motorcycle"></i> Курьер
+            </label>
+            <select id="fixtureAccountCourier" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-xs text-white focus:border-cyan-500/50 focus:outline-none">
+              <option value="">Создавать нового</option>
+            </select>
+            <div id="fixtureAccountCourierHint" class="text-[10px] text-slate-500 font-mono truncate"></div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-semibold text-purple-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-user-shield"></i> Админ
+            </label>
+            <select id="fixtureAccountAdmin" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-xs text-white focus:border-purple-500/50 focus:outline-none">
+              <option value="">Создавать нового</option>
+            </select>
+            <div id="fixtureAccountAdminHint" class="text-[10px] text-slate-500 font-mono truncate"></div>
+          </div>
+        </div>
+
+        <div class="text-[10px] text-slate-500 leading-snug border-t border-darkborder pt-2.5">
+          <i class="fa-solid fa-circle-info mr-1"></i>
+          Привязка хранится вместе с токенами стенда и переживает перезапуск. У привязанного ресторана
+          сьют заказывает существующее блюдо и выставляет круглосуточное расписание, чтобы точка была открыта.
+        </div>
+      </div>
+
       <!-- 4 Role Pools Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -943,10 +1014,10 @@
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Роль</label>
           <select id="quickAuthRole" onchange="toggleQuickAuthFields()" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
-            <option value="admin">Директор (Admin Login)</option>
-            <option value="client">Клиент (Phone + Verification Code)</option>
-            <option value="rest">Ресторан (Login + Password)</option>
-            <option value="courier">Курьер (Phone + Password)</option>
+            <option value="client">Клиент — по номеру телефона</option>
+            <option value="rest">Ресторан — логин и пароль</option>
+            <option value="courier">Курьер — телефон и пароль</option>
+            <option value="admin">Директор / админ — логин и пароль</option>
           </select>
         </div>
 
@@ -961,8 +1032,11 @@
         </div>
 
         <div id="fieldPasswordGroup">
-          <label class="block font-semibold text-slate-300 mb-1">Пароль / SMS Код</label>
+          <label class="block font-semibold text-slate-300 mb-1" id="quickAuthPasswordLabel">Пароль / SMS Код</label>
           <input type="password" id="quickAuthPassword" placeholder="Пароль" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white">
+          <p id="quickAuthPasswordHint" class="hidden text-[10px] text-slate-500 mt-1 leading-snug">
+            Можно оставить пустым: на стенде с DEBUG=true система сама запросит код и войдёт по нему.
+          </p>
         </div>
       </div>
 

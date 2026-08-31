@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -257,6 +258,7 @@ func (s *Server) Start(port int) error {
 	mux.HandleFunc("/api/tokens/auth-login", s.handleTokenAuthLogin)
 	mux.HandleFunc("/api/tokens/register", s.handleTokenRegister)
 	mux.HandleFunc("/api/tokens/preset", s.handleTokenPreset)
+	mux.HandleFunc("/api/fixtures/accounts", s.handleFixtureAccounts)
 
 	// Sessions & Runners
 	mux.HandleFunc("/api/sessions", s.handleSessions)
@@ -414,6 +416,9 @@ func (s *Server) handleTokenActivate(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
+// handleTokenDelete removes a stored profile. A profile bound to a role is
+// unbound first, so a suite never runs against a token that is no longer in
+// the vault.
 func (s *Server) handleTokenDelete(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Role string `json:"role"`
@@ -422,6 +427,13 @@ func (s *Server) handleTokenDelete(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	canonical := client.CanonicalRole(req.Role)
+	if bound, ok := s.engine.SessionMgr.TestBindings()[canonical]; ok && bound.ID == req.ID {
+		if err := s.bindFixtureAccount(canonical, ""); err != nil {
+			log.Printf("[SERVER] Не удалось снять привязку роли %s: %v", canonical, err)
+		}
 	}
 
 	s.engine.SessionMgr.DeleteProfile(req.Role, req.ID)
@@ -437,6 +449,8 @@ func (s *Server) handleTokenAuthLogin(w http.ResponseWriter, r *http.Request) {
 		PhoneNumber string `json:"phoneNumber"`
 		Password    string `json:"password"`
 		Code        string `json:"code"`
+		FirstName   string `json:"firstName"`
+		LastName    string `json:"lastName"`
 		ProfileName string `json:"profileName"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -479,13 +493,48 @@ func (s *Server) handleTokenAuthLogin(w http.ResponseWriter, r *http.Request) {
 
 	case "client":
 		identifier = req.PhoneNumber
+		if identifier == "" {
+			identifier = req.Login
+		}
+		if identifier == "" {
+			http.Error(w, "phone number is required for client", http.StatusBadRequest)
+			return
+		}
+		// A client signs in with a one-time code, so "log in as this phone"
+		// means: request a code, then use it. On a DEBUG stand the code comes
+		// back in the register response, which is what makes entering just a
+		// phone number enough.
 		code := req.Code
 		if code == "" {
+			regResp, regErr := s.engine.ClientAPI.Register(ctx, client.ClientRegisterRequest{
+				PhoneNumber: identifier,
+				CityKey:     s.cfg.FixtureCity,
+			})
+			switch {
+			case regErr != nil && client.IsRateLimited(regErr):
+				http.Error(w, fmt.Sprintf(
+					"Код на %s уже отправлен, повторить можно через %d сек. Введите пришедший код вручную.",
+					identifier, client.RetryAfter(regErr)), http.StatusTooManyRequests)
+				return
+			case regErr != nil:
+				http.Error(w, fmt.Sprintf("Не удалось запросить код: %v", regErr), http.StatusBadGateway)
+				return
+			}
+			code = regResp.DebugCode
+		}
+		if code == "" {
 			code = s.cfg.VerificationCode
+		}
+		if code == "" {
+			http.Error(w, "Стенд не вернул код (нужен DEBUG=true) — введите код вручную "+
+				"или задайте код стенда в его настройках.", http.StatusBadRequest)
+			return
 		}
 		token, err = s.engine.ClientAPI.Login(ctx, client.ClientLoginRequest{
 			PhoneNumber:      identifier,
 			VerificationCode: code,
+			FirstName:        req.FirstName,
+			LastName:         req.LastName,
 		})
 	default:
 		http.Error(w, "invalid role (client, rest, courier, admin)", http.StatusBadRequest)
@@ -564,11 +613,17 @@ func (s *Server) handleTokenRegister(w http.ResponseWriter, r *http.Request) {
 				regReq.RestName = "Restaurant " + login
 			}
 			if regReq.City == "" {
-				regReq.City = "Москва"
+				regReq.City = s.cfg.FixtureCity
 			}
 			if regReq.DeliveryMethod == "" {
 				regReq.DeliveryMethod = "locali"
 			}
+			// Without these flags the point refuses every order with
+			// RECEIVE_METHOD_DISABLED, which makes the account useless for a flow.
+			regReq.DeliveryEnabled = true
+			regReq.PickupEnabled = true
+			regReq.Latitude = &s.cfg.FixtureLatitude
+			regReq.Longitude = &s.cfg.FixtureLongitude
 			if err := s.engine.RestAPI.Register(ctx, regReq); err != nil {
 				log.Printf("[SERVER] Rest register note: %v (attempting login)", err)
 			}
@@ -590,6 +645,7 @@ func (s *Server) handleTokenRegister(w http.ResponseWriter, r *http.Request) {
 		identifier = phone
 		regReq := client.CourierRegisterRequest{
 			FirstName:    req.FirstName,
+			Surname:      req.LastName,
 			LastName:     req.LastName,
 			PhoneNumber:  phone,
 			Login:        phone,
@@ -603,12 +659,23 @@ func (s *Server) handleTokenRegister(w http.ResponseWriter, r *http.Request) {
 		if regReq.LastName == "" {
 			regReq.LastName = "Custom"
 		}
+		// The backend stores the family name from `surname` (regCourier maps
+		// surname -> lastName); `lastName` alone leaves the row nameless.
+		regReq.Surname = regReq.LastName
+		// deliveryType is written straight into the group_id foreign key, so
+		// only an existing courier group UUID is accepted — the plain "car"
+		// this used to send fails the constraint and the courier is never
+		// created. Empty leaves the courier without a group, which the backend
+		// accepts.
 		if regReq.DeliveryType == "" {
-			regReq.DeliveryType = "car"
+			regReq.DeliveryType = s.cfg.FixtureCourierGroupID
 		}
 		if regReq.CityKey == "" {
-			regReq.CityKey = "msk"
+			regReq.CityKey = s.cfg.FixtureCity
 		}
+		// The family name lands in the row through `surname`; `lastName` alone
+		// leaves the courier nameless.
+		regReq.Surname = regReq.LastName
 		if err := s.engine.CourierAPI.Register(ctx, regReq); err != nil {
 			log.Printf("[SERVER] Courier register note: %v (attempting login)", err)
 		}
@@ -630,15 +697,23 @@ func (s *Server) handleTokenRegister(w http.ResponseWriter, r *http.Request) {
 			CityKey:     req.CityKey,
 		}
 		if regReq.Address == "" {
-			regReq.Address = "Москва, ул. Тверская 1"
+			regReq.Address = fmt.Sprintf("%s, ул. Тестовая, 10", s.cfg.FixtureCity)
 		}
 		if regReq.CityKey == "" {
-			regReq.CityKey = "msk"
+			regReq.CityKey = s.cfg.FixtureCity
 		}
-		if err := s.engine.ClientAPI.Register(ctx, regReq); err != nil {
-			log.Printf("[SERVER] Client register note: %v (attempting login)", err)
+		regResp, regErr := s.engine.ClientAPI.Register(ctx, regReq)
+		if regErr != nil {
+			log.Printf("[SERVER] Client register note: %v (attempting login)", regErr)
 		}
+		// Code priority: what the operator typed, then the debugCode the stand
+		// returned (DEBUG=true), then the stand-wide verification code. The
+		// middle step is what lets the operator add a client token without
+		// hunting for the SMS.
 		code := req.Code
+		if code == "" && regResp != nil {
+			code = regResp.DebugCode
+		}
 		if code == "" {
 			code = s.cfg.VerificationCode
 		}
@@ -1172,6 +1247,10 @@ func (s *Server) applyStand(st stands.Stand) {
 		s.seedEnvTokens()
 	}
 
+	// Bindings live in the vault, so they follow the stand: switching stands
+	// must not leave the suites running as an account from the previous one.
+	s.restoreFixtureBindings()
+
 	s.lastStandID = st.ID
 }
 
@@ -1435,6 +1514,11 @@ func (s *Server) handleManualAction(w http.ResponseWriter, r *http.Request) {
 		RestID    string `json:"restId"`
 		CourierID string `json:"courierId"`
 		Status    string `json:"status"`
+		// AddressID and ReceiveMethod belong to create_order: the order is
+		// assembled from the client's cart and refers to a saved address.
+		AddressID     string `json:"addressId"`
+		ReceiveMethod string `json:"receiveMethod"`
+		PaymentType   string `json:"paymentType"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -1446,10 +1530,22 @@ func (s *Server) handleManualAction(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Action {
 	case "create_order":
+		receiveMethod := req.ReceiveMethod
+		if receiveMethod == "" {
+			receiveMethod = client.ReceiveDelivery
+		}
+		paymentType := req.PaymentType
+		if paymentType == "" {
+			paymentType = client.PaymentCash
+		}
+		// The cart must already hold something: this endpoint places an order,
+		// it does not assemble one.
 		result, err = s.engine.ClientAPI.CreateRestaurantOrder(ctx, client.CreateRestaurantOrderRequest{
-			RestID:          req.RestID,
-			DeliveryAddress: "Москва, Тверская 15",
-			PaymentType:     "card",
+			RestID:        req.RestID,
+			ReceiveMethod: receiveMethod,
+			AddressID:     req.AddressID,
+			Payment:       client.OrderPayment{Type: paymentType},
+			Source:        client.SourceLokaliEda,
 		})
 	case "assign_courier":
 		result, err = s.engine.AdminAPI.AssignCourier(ctx, req.OrderID, req.CourierID)
@@ -1469,4 +1565,114 @@ func (s *Server) handleManualAction(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)
+}
+
+// handleFixtureAccounts reads and writes which stored accounts the test suites
+// run as.
+//
+// By default every suite generates a fresh identity per role, which keeps runs
+// isolated. Binding an account trades that isolation for a known identity —
+// useful when a stand has hand-prepared data (a restaurant with a real menu, a
+// courier already in the right group) that a generated fixture cannot
+// reproduce.
+func (s *Server) handleFixtureAccounts(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"accounts": s.fixtureAccountsView()})
+
+	case http.MethodPost, http.MethodPut:
+		// Every role present in the body is applied; a role sent as "" is
+		// unbound and goes back to generating an identity per run.
+		var req map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		applied := make([]string, 0, len(req))
+		for role, profileID := range req {
+			canonical := client.CanonicalRole(role)
+			if canonical == "" {
+				http.Error(w, fmt.Sprintf(`{"error":"неизвестная роль: %s"}`, role), http.StatusBadRequest)
+				return
+			}
+			if err := s.bindFixtureAccount(canonical, profileID); err != nil {
+				http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+				return
+			}
+			applied = append(applied, canonical)
+		}
+
+		sort.Strings(applied)
+		s.vaultMu.Lock()
+		s.saveVaultLocked(s.lastStandID)
+		s.vaultMu.Unlock()
+
+		log.Printf("[SERVER] Аккаунты для тестов обновлены: %s", strings.Join(applied, ", "))
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"accounts": s.fixtureAccountsView()})
+
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+// bindFixtureAccount points one role at a stored profile (or clears it) and
+// pushes the decision into the fixture manager, which is what the suites read.
+func (s *Server) bindFixtureAccount(canonical, profileID string) error {
+	profile, err := s.engine.SessionMgr.SetTestBinding(canonical, profileID)
+	if err != nil {
+		return err
+	}
+
+	if profile == nil {
+		return s.engine.Fixtures.BindAccount(canonical, "", "", "")
+	}
+
+	if err := s.engine.Fixtures.BindAccount(canonical, profile.Name, profile.Identifier, profile.Token); err != nil {
+		// The binding is rejected as a whole: leaving the vault pointing at an
+		// account the suites cannot use would be a lie.
+		_, _ = s.engine.SessionMgr.SetTestBinding(canonical, "")
+		return err
+	}
+	return nil
+}
+
+// fixtureAccountsView renders the current binding per role for the UI.
+func (s *Server) fixtureAccountsView() map[string]interface{} {
+	bound := s.engine.SessionMgr.TestBindings()
+	out := make(map[string]interface{}, 4)
+
+	for _, role := range []string{"client", "rest", "courier", "admin"} {
+		entry := map[string]interface{}{"bound": false}
+		if p, ok := bound[role]; ok {
+			label, identifier, entityID, isBound := s.engine.Fixtures.BoundAccount(role)
+			entry = map[string]interface{}{
+				"bound":      isBound,
+				"profileId":  p.ID,
+				"name":       p.Name,
+				"identifier": identifier,
+				"entityId":   entityID,
+				"label":      label,
+			}
+		}
+		out[role] = entry
+	}
+	return out
+}
+
+// restoreFixtureBindings re-applies the vault's bindings to the fixture
+// manager. Called after a vault is loaded for a stand, so a restart or a stand
+// switch does not silently drop back to generated identities.
+func (s *Server) restoreFixtureBindings() {
+	for role := range map[string]struct{}{"client": {}, "rest": {}, "courier": {}, "admin": {}} {
+		_ = s.engine.Fixtures.BindAccount(role, "", "", "")
+	}
+	for role, profile := range s.engine.SessionMgr.TestBindings() {
+		if err := s.engine.Fixtures.BindAccount(role, profile.Name, profile.Identifier, profile.Token); err != nil {
+			log.Printf("[SERVER] Привязка аккаунта роли %s снята: %v", role, err)
+			_, _ = s.engine.SessionMgr.SetTestBinding(role, "")
+		}
+	}
 }

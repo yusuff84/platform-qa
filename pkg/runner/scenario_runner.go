@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"locali-e2e-engine/pkg/client"
 	"locali-e2e-engine/pkg/registry"
 	"locali-e2e-engine/pkg/scenario"
 )
@@ -128,7 +129,7 @@ func (o *TestOrchestrator) execUserHTTPStep(ctx context.Context, step *scenario.
 
 	parsed := parseLooseJSON(rawResp)
 	if err != nil && status >= 400 {
-		parsed = parseLooseJSON(extractErrorBody(err.Error(), status))
+		parsed = parseLooseJSON(errorBodyOf(err))
 	}
 
 	extracted := make([]string, 0, len(step.Extract))
@@ -500,22 +501,23 @@ func parseLooseJSON(s string) interface{} {
 	return doc
 }
 
-// extractErrorBody recovers the response body from the client wrapper error
-// ("api error status %d: %s") produced by HTTPClient on statuses >= 400.
-func extractErrorBody(errMsg string, status int) string {
-	prefix := fmt.Sprintf("api error status %d: ", status)
-	if strings.HasPrefix(errMsg, prefix) {
-		return strings.TrimPrefix(errMsg, prefix)
+// errorBodyOf returns the raw response body the backend sent with a >= 400
+// status, so scenario asserts can inspect an error payload the same way they
+// inspect a success one.
+func errorBodyOf(err error) string {
+	if apiErr, ok := client.AsAPIError(err); ok {
+		return apiErr.Body
 	}
 	return ""
 }
 
+// unwrapAPIError renders the failure for the operator: the backend's own
+// status and message for an API error, the transport error otherwise.
 func unwrapAPIError(err error) string {
-	msg := err.Error()
-	if i := strings.Index(msg, ": api error"); i > 0 {
-		return msg[i+2:]
+	if apiErr, ok := client.AsAPIError(err); ok {
+		return apiErr.Error()
 	}
-	return msg
+	return err.Error()
 }
 
 func sortStrings(s []string) {

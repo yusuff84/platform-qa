@@ -281,6 +281,9 @@ function handleExecutionEvent(event) {
     } else if (event.stepType === 'CHECK_FAILED') {
       setCheckState(event.suiteKey, event.checkId, 'FAILED', event.message, event.durationMs);
       updateSuiteProgress(event.suiteKey, event);
+    } else if (event.stepType === 'CHECK_SKIPPED') {
+      setCheckState(event.suiteKey, event.checkId, 'SKIPPED', event.message, event.durationMs);
+      updateSuiteProgress(event.suiteKey, event);
     }
   }
 
@@ -448,6 +451,7 @@ const CATEGORY_STYLES = {
   reliability: { ru: 'Надёжность',  badge: 'bg-amber-500/10 text-amber-400 border-amber-500/30',    icon: 'fa-rotate-left text-amber-400',        btn: 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/20' },
   edge:        { ru: 'Граничный',   badge: 'bg-pink-500/10 text-pink-400 border-pink-500/30',       icon: 'fa-dice-d6 text-pink-400',             btn: 'bg-pink-600 hover:bg-pink-500 shadow-pink-600/20' },
   custom:      { ru: 'Мой сценарий', badge: 'bg-slate-500/15 text-fuchsia-400 border-fuchsia-500/30', icon: 'fa-pen-ruler text-fuchsia-400',      btn: 'bg-fuchsia-600 hover:bg-fuchsia-500 shadow-fuchsia-600/20' },
+  api:         { ru: 'API-ручка',   badge: 'bg-teal-500/10 text-teal-400 border-teal-500/30',       icon: 'fa-plug text-teal-400',                btn: 'bg-teal-600 hover:bg-teal-500 shadow-teal-600/20' },
 };
 
 async function loadSuites() {
@@ -498,14 +502,57 @@ function initSuiteStates() {
   updateRunProgressBar();
 }
 
+// Сценарии и API-проверки отвечают на разные вопросы, поэтому и показываются
+// раздельно: сценарий доказывает, что флоу работает целиком и обрывается на
+// первом сломанном шаге; API-проверка доказывает контракт одной ручки и идёт
+// независимо от соседних.
 function renderSuites() {
   const grid = document.getElementById('suitesGrid');
   if (!suitesRegistry.length) return;
 
-  grid.innerHTML = suitesRegistry.map(s => suiteCardHtml(s)).join('');
+  const scenarios = suitesRegistry.filter(s => s.category !== 'api');
+  const apiSuites = suitesRegistry.filter(s => s.category === 'api');
+
+  let html = '';
+  if (scenarios.length) {
+    html += suiteSectionHtml(
+      'Сценарии',
+      'fa-route text-blue-400',
+      'Сквозные флоу: каждый шаг зависит от предыдущего, прогон останавливается на первом провале.',
+      scenarios);
+  }
+  if (apiSuites.length) {
+    html += suiteSectionHtml(
+      'API-проверки ручек',
+      'fa-plug text-teal-400',
+      'Контракты отдельных ручек. Проверки независимы: одна сломанная ручка не скрывает состояние остальных.',
+      apiSuites);
+  }
+
+  grid.innerHTML = html;
   updateChecklistSummary();
   updateRunProgressBar();
   updateLastRunBadges();
+}
+
+// suiteSectionHtml рисует озаглавленную секцию с сеткой карточек внутри.
+function suiteSectionHtml(title, icon, subtitle, suites) {
+  const checksTotal = suites.reduce((n, s) => n + ((s.checks || []).length), 0);
+  return `
+    <div class="col-span-full">
+      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3 mt-1">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid ${icon}"></i>${escapeHtml(title)}
+        </h3>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-darkborder">
+          ${suites.length} наборов · ${checksTotal} проверок
+        </span>
+        <span class="text-[11px] text-slate-500 basis-full leading-snug">${escapeHtml(subtitle)}</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        ${suites.map(s => suiteCardHtml(s)).join('')}
+      </div>
+    </div>`;
 }
 
 function findSuiteCard(suiteKey) {
@@ -764,9 +811,19 @@ function buildSummaryBanner(st, success, ev) {
   const dur = ev && ev.durationMs ? fmtDuration(ev.durationMs) : '';
   const runId = (st && st.lastRunId) || (ev && ev.runId) || null;
 
-  let html = success
-    ? '<div class="result-banner ok"><i class="fa-solid fa-circle-check mr-1.5"></i>ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ</div>'
-    : '<div class="result-banner fail"><i class="fa-solid fa-circle-xmark mr-1.5"></i>ПРОВАЛ НА ШАГЕ: ' + escapeHtml((st && st.failedCheckTitle) || 'неизвестный шаг') + '</div>';
+  // Пропущенная проверка ничего не доказала, поэтому зелёный баннер «все
+  // проверки пройдены» над четырьмя пропусками — самый дорогой вид зелёного.
+  const skipped = countCheckStates(st, 'SKIPPED');
+  let html;
+  if (!success) {
+    html = '<div class="result-banner fail"><i class="fa-solid fa-circle-xmark mr-1.5"></i>ПРОВАЛ НА ШАГЕ: ' + escapeHtml((st && st.failedCheckTitle) || 'неизвестный шаг') + '</div>';
+  } else if (skipped > 0) {
+    const passed = countCheckStates(st, 'PASSED');
+    html = '<div class="result-banner skip"><i class="fa-solid fa-forward mr-1.5"></i>ПРОЙДЕНО ' + passed +
+      ', ПРОПУЩЕНО ' + skipped + '</div>';
+  } else {
+    html = '<div class="result-banner ok"><i class="fa-solid fa-circle-check mr-1.5"></i>ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ</div>';
+  }
 
   html += '<div class="flex items-center justify-between gap-2">';
   html += '<span class="text-[10px] font-mono text-slate-500">' + (dur ? '<i class="fa-regular fa-clock mr-1"></i>' + dur : '') + '</span>';
@@ -1372,6 +1429,8 @@ async function loadVault() {
     document.getElementById('restCountBadge').textContent = `${(vault.rests || []).length} профилей`;
     document.getElementById('courierCountBadge').textContent = `${(vault.couriers || []).length} профилей`;
     document.getElementById('adminCountBadge').textContent = `${(vault.admins || []).length} профилей`;
+
+    renderFixtureAccounts(vault);
   } catch (err) {
     console.error('Failed to load token vault:', err);
     tokenVault = null;
@@ -1563,13 +1622,22 @@ function toggleQuickAuthFields() {
   const role = document.getElementById('quickAuthRole').value;
   const loginInput = document.getElementById('quickAuthLogin');
   const pwdInput = document.getElementById('quickAuthPassword');
+  const pwdLabel = document.getElementById('quickAuthPasswordLabel');
+  const pwdHint = document.getElementById('quickAuthPasswordHint');
+
+  // Клиент входит по одноразовому коду, а не по паролю: на DEBUG-стенде код
+  // приходит в ответе на запрос, поэтому достаточно одного номера.
+  const isClient = role === 'client';
+  pwdInput.type = isClient ? 'text' : 'password';
+  pwdLabel.textContent = isClient ? 'Код из SMS (необязательно)' : 'Пароль';
+  pwdHint.classList.toggle('hidden', !isClient);
 
   if (role === 'admin') {
     loginInput.placeholder = 'Логин директора';
     pwdInput.placeholder = 'Пароль супер-админа';
-  } else if (role === 'client') {
+  } else if (isClient) {
     loginInput.placeholder = '+79991234567';
-    pwdInput.placeholder = 'SMS код (1234)';
+    pwdInput.placeholder = 'оставьте пустым — код заберётся сам';
   } else if (role === 'rest') {
     loginInput.placeholder = 'rest_login';
     pwdInput.placeholder = 'Пароль ресторана';
@@ -1585,13 +1653,19 @@ async function submitQuickAuth(btn) {
   const login = document.getElementById('quickAuthLogin').value.trim();
   const password = document.getElementById('quickAuthPassword').value.trim();
 
+  if (!login) {
+    toastError(role === 'client' ? 'Укажите номер телефона клиента.' : 'Укажите логин или телефон.');
+    return;
+  }
+
   const payload = {
     role,
     profileName,
     login,
     phoneNumber: login,
     password,
-    code: password
+    // Для клиента это одноразовый код: пустое значение означает «запроси сам».
+    code: role === 'client' ? password : '',
   };
 
   await busyWrap(btn, async () => {
@@ -1603,10 +1677,12 @@ async function submitQuickAuth(btn) {
       });
 
       if (res.ok) {
+        const profile = await res.json().catch(() => null);
         closeQuickAuthModal();
         loadVault();
-        toastSuccess(`Вход выполнен — токен [${role.toUpperCase()}] получен и сохранён.`);
-        logTerminal('SUCCESS', `Успешный вход через API! Токен получен и сохранен для [${role.toUpperCase()}].`);
+        const who = profile && profile.identifier ? ` (${profile.identifier})` : '';
+        toastSuccess(`Вход выполнен — токен [${role.toUpperCase()}]${who} сохранён в хранилище.`);
+        logTerminal('SUCCESS', `Вход через API выполнен, токен [${role.toUpperCase()}]${who} сохранён.`);
       } else {
         toastError('Ошибка авторизации: ' + (await res.text()));
       }
@@ -2273,4 +2349,112 @@ function updateLastRunBadges() {
     const time = info.startTime ? fmtAbsTime(info.startTime) : '';
     el.innerHTML = `Последний прогон: <span class="${ok ? 'text-green-400' : 'text-red-400'} font-bold">${escapeHtml(ok ? 'пройден' : 'провален')}</span>${time ? ' · ' + time : ''}`;
   });
+}
+
+// ---------------------------------------------------------------------------
+// Аккаунты, под которыми идут прогоны
+//
+// По умолчанию каждый сьют создаёт свои аккаунты, и прогоны не мешают друг
+// другу. Привязка меняет это на конкретный профиль — когда на стенде есть
+// подготовленные вручную данные, которых у сгенерированной фикстуры нет.
+// ---------------------------------------------------------------------------
+
+const FIXTURE_ROLE_FIELDS = [
+  { role: 'client', select: 'fixtureAccountClient', hint: 'fixtureAccountClientHint', pool: 'clients' },
+  { role: 'rest', select: 'fixtureAccountRest', hint: 'fixtureAccountRestHint', pool: 'rests' },
+  { role: 'courier', select: 'fixtureAccountCourier', hint: 'fixtureAccountCourierHint', pool: 'couriers' },
+  { role: 'admin', select: 'fixtureAccountAdmin', hint: 'fixtureAccountAdminHint', pool: 'admins' },
+];
+
+function renderFixtureAccounts(vault) {
+  const bound = (vault && vault.testAccounts) || {};
+
+  FIXTURE_ROLE_FIELDS.forEach(({ role, select, hint, pool }) => {
+    const el = document.getElementById(select);
+    if (!el) return;
+
+    const profiles = (vault && vault[pool]) || [];
+    // Сохраняем выбор оператора, если он ещё не применён: перерисовка списка
+    // не должна молча сбрасывать несохранённый выбор.
+    const previous = el.dataset.dirty === '1' ? el.value : (bound[role] || '');
+
+    el.innerHTML = '<option value="">Создавать нового</option>' +
+      profiles.map(p => {
+        const label = p.identifier ? `${p.name} — ${p.identifier}` : p.name;
+        return `<option value="${escapeHtml(p.id)}">${escapeHtml(label)}</option>`;
+      }).join('');
+
+    el.value = profiles.some(p => p.id === previous) ? previous : '';
+    el.onchange = () => { el.dataset.dirty = '1'; updateFixtureAccountHint(role); };
+    updateFixtureAccountHint(role);
+  });
+}
+
+function updateFixtureAccountHint(role) {
+  const field = FIXTURE_ROLE_FIELDS.find(f => f.role === role);
+  if (!field) return;
+  const el = document.getElementById(field.select);
+  const hintEl = document.getElementById(field.hint);
+  if (!el || !hintEl) return;
+
+  if (!el.value) {
+    hintEl.textContent = 'новый аккаунт на каждый прогон';
+    hintEl.className = 'text-[10px] text-slate-500 truncate';
+    return;
+  }
+
+  const profile = ((tokenVault && tokenVault[field.pool]) || []).find(p => p.id === el.value);
+  const entityId = profile && profile.payload ? (profile.payload.user_id || profile.payload.admin_id) : null;
+  hintEl.textContent = entityId ? `id: ${entityId}` : 'фиксированный аккаунт';
+  hintEl.className = 'text-[10px] text-indigo-400 font-mono truncate';
+}
+
+async function saveFixtureAccounts(btn) {
+  const payload = {};
+  FIXTURE_ROLE_FIELDS.forEach(({ role, select }) => {
+    const el = document.getElementById(select);
+    if (el) payload[role] = el.value || '';
+  });
+
+  await busyWrap(btn, async () => {
+    try {
+      const res = await fetch('/api/fixtures/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        toastError('Не удалось привязать аккаунты: ' + (await res.text()));
+        return;
+      }
+
+      const data = await res.json();
+      FIXTURE_ROLE_FIELDS.forEach(({ select }) => {
+        const el = document.getElementById(select);
+        if (el) delete el.dataset.dirty;
+      });
+
+      const bound = Object.entries(data.accounts || {})
+        .filter(([, v]) => v && v.bound)
+        .map(([role, v]) => `${role}: ${v.name}`);
+
+      await loadVault();
+      if (bound.length === 0) {
+        toastSuccess('Все роли снова создают новые аккаунты на каждый прогон.');
+        logTerminal('INFO', 'Привязка аккаунтов снята — сьюты генерируют фикстуры.');
+      } else {
+        toastSuccess('Аккаунты для прогонов сохранены: ' + bound.join(', '));
+        logTerminal('SUCCESS', 'Сьюты будут работать под аккаунтами — ' + bound.join(', '));
+      }
+    } catch (err) {
+      toastError('Ошибка сети: ' + err.message);
+    }
+  });
+}
+
+// countCheckStates считает проверки сьюта в заданном состоянии.
+function countCheckStates(st, status) {
+  if (!st || !st.checks) return 0;
+  return Object.values(st.checks).filter(c => c && c.status === status).length;
 }

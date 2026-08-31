@@ -15,17 +15,13 @@ func Test_Idempotency_And_HighConcurrency(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Idempotency: duplicate request with same Idempotency-Key returns identical order", func(t *testing.T) {
-		_, clientToken, err := testEngine.Fixtures.CreateUniqueClient(ctx)
+		// A restaurant order needs a whole prepared situation: an open
+		// restaurant with a dish, a client with an address, and a filled cart.
+		octx, err := testEngine.Fixtures.PrepareRestaurantOrder(ctx)
 		require.NoError(t, err)
 
-		testEngine.SessionMgr.SetClientSession("test_client", clientToken, "+79991112233", "Client")
-
 		idemKey := uuid.New().String()
-		req := client.CreateRestaurantOrderRequest{
-			RestID:          "rest_test_idem",
-			DeliveryAddress: "Москва, Ленина 10",
-			PaymentType:     "card",
-		}
+		req := octx.OrderRequest()
 
 		// First submission
 		order1, err := testEngine.ClientAPI.CreateRestaurantOrderWithIdempotency(ctx, req, idemKey)
@@ -44,6 +40,8 @@ func Test_Idempotency_And_HighConcurrency(t *testing.T) {
 	})
 
 	t.Run("Concurrency: 10 parallel independent order creations without session crosstalk", func(t *testing.T) {
+		requireParcelWindowOpen(t)
+
 		parallelCount := 10
 		var wg sync.WaitGroup
 		errs := make(chan error, parallelCount)
@@ -62,12 +60,8 @@ func Test_Idempotency_And_HighConcurrency(t *testing.T) {
 
 				// Independent HTTP client call with client token
 				var orderResp client.OrderResponse
-				orderReq := client.CreateIndependentOrderRequest{
-					AddressA:    fmt.Sprintf("Точка А worker %d", idx),
-					AddressB:    fmt.Sprintf("Точка Б worker %d", idx),
-					PaymentType: "card",
-					Price:       float64(300 + idx*10),
-				}
+				orderReq := testEngine.Fixtures.ParcelRequest("")
+				orderReq.Comment = fmt.Sprintf("Параллельный воркер %d", idx)
 
 				_, err = testEngine.HTTPClient.Request(ctx, "POST", "/api/clients/independent-order", cToken, orderReq, &orderResp)
 				if err != nil {

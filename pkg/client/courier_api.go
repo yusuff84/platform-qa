@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -51,7 +52,13 @@ func (api *CourierAPI) TakeOrder(ctx context.Context, orderID, courierID string)
 	return nil
 }
 
-// ChangeStatus updates courier delivery status (e.g. 'going', 'shipping', 'complete')
+// ChangeStatus updates courier delivery status (e.g. 'going', 'shipping', 'complete').
+//
+// The endpoint does not promise an order back: depending on the branch it
+// answers with the updated order or with Sequelize's raw update result — a
+// bare [1] of affected rows. Decoding straight into an order therefore fails
+// on a call that actually succeeded, so the body is parsed leniently and the
+// caller always gets the order id plus the status it asked for.
 func (api *CourierAPI) ChangeStatus(ctx context.Context, orderID, status string, isIndependent bool) (*OrderResponse, error) {
 	token := api.sessionMgr.GetCourierSession().Token
 	req := CourierChangeStatusRequest{
@@ -60,12 +67,21 @@ func (api *CourierAPI) ChangeStatus(ctx context.Context, orderID, status string,
 		IsIndependent: isIndependent,
 	}
 
-	var updatedOrder OrderResponse
-	_, err := api.sessionMgr.HTTPClient().Request(ctx, "POST", "/api/couriers/change-status", token, req, &updatedOrder)
+	var raw json.RawMessage
+	_, err := api.sessionMgr.HTTPClient().Request(ctx, "POST", "/api/couriers/change-status", token, req, &raw)
 	if err != nil {
 		return nil, fmt.Errorf("courier change status to '%s' failed: %w", status, err)
 	}
-	return &updatedOrder, nil
+
+	updated := OrderResponse{OrderID: orderID, CourierStatus: status}
+	// Only an object can be an order; [1] and other shapes carry no state.
+	if len(raw) > 0 && raw[0] == '{' {
+		var decoded OrderResponse
+		if json.Unmarshal(raw, &decoded) == nil && decoded.OrderID != "" {
+			updated = decoded
+		}
+	}
+	return &updated, nil
 }
 
 // Complete marks order delivery as finished

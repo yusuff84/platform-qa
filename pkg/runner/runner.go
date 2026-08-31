@@ -30,6 +30,16 @@ const (
 	LogHTTP    LogLevel = "HTTP"
 )
 
+// Run statuses stored in TestRun.Status. SKIPPED marks a run that failed
+// nothing but could not execute everything either — a closed platform window,
+// a missing precondition — and therefore proves less than a pass.
+const (
+	RunRunning = "RUNNING"
+	RunPassed  = "PASSED"
+	RunFailed  = "FAILED"
+	RunSkipped = "SKIPPED"
+)
+
 // Check execution statuses stored in TestRun.Results
 const (
 	CheckRunning = "RUNNING"
@@ -100,8 +110,9 @@ type TestRun struct {
 	PassedSteps  int                      `json:"passedSteps"`
 	TotalSteps   int                      `json:"totalSteps"`
 	TotalChecks  int                      `json:"totalChecks"`
-	PassedChecks int                      `json:"passedChecks"`
-	FailedChecks int                      `json:"failedChecks"`
+	PassedChecks  int                     `json:"passedChecks"`
+	FailedChecks  int                     `json:"failedChecks"`
+	SkippedChecks int                     `json:"skippedChecks"`
 	Results      map[string]CheckResult   `json:"results,omitempty"`
 
 	// Trigger marks how the run was started: manual, regression or webhook.
@@ -519,16 +530,22 @@ func (o *TestOrchestrator) checkSkip(run *TestRun, suiteKey, checkID, reason str
 	if run.Results == nil {
 		run.Results = make(map[string]CheckResult)
 	}
+	if prev, existed := run.Results[checkID]; !existed || prev.Status != CheckSkipped {
+		run.SkippedChecks++
+	}
 	run.Results[checkID] = CheckResult{Status: CheckSkipped, Message: reason}
 	o.mu.Unlock()
 
+	// CHECK_SKIPPED, not INFO: the UI moves a check tile out of its running
+	// state only on a check event, so an INFO left the tile spinning forever
+	// while the suite reported itself finished.
 	o.Emit(&ExecutionEvent{
 		RunID:      run.ID,
 		SuiteName:  o.suiteTitle(suiteKey),
 		SuiteKey:   suiteKey,
-		StepType:   "INFO",
-		Level:      LogInfo,
-		Message:    fmt.Sprintf("⏭ Check %s skipped: %s", checkID, reason),
+		StepType:   "CHECK_SKIPPED",
+		Level:      LogWarn,
+		Message:    reason,
 		CheckID:    checkID,
 		TotalSteps: o.checkCount(suiteKey),
 		Timestamp:  time.Now(),
@@ -579,6 +596,20 @@ func (o *TestOrchestrator) executeSuite(run *TestRun, suiteKey string) {
 		err = o.runCancellation(ctx, run, suiteKey)
 	case "security_rbac":
 		err = o.runSecurityRBAC(ctx, run, suiteKey)
+	case "auth_otp":
+		err = o.runAuthOTP(ctx, run, suiteKey)
+	case "api_menu":
+		err = o.runAPISuite(ctx, run, suiteKey, "API: меню ресторана", apiMenuChecks())
+	case "api_modifiers":
+		err = o.runAPISuite(ctx, run, suiteKey, "API: модификаторы блюд", apiModifierChecks())
+	case "api_cart":
+		err = o.runAPISuite(ctx, run, suiteKey, "API: корзина клиента", apiCartChecks())
+	case "api_wallet":
+		err = o.runAPISuite(ctx, run, suiteKey, "API: кошельки", apiWalletChecks())
+	case "api_order_status":
+		err = o.runAPISuite(ctx, run, suiteKey, "API: статусы заказа", apiStatusChecks())
+	case "api_guards":
+		err = o.runAPISuite(ctx, run, suiteKey, "API: ролевые гейты", apiGuardChecks())
 	case "idempotency":
 		err = o.runIdempotency(ctx, run, suiteKey)
 	case "all":
@@ -596,7 +627,18 @@ func (o *TestOrchestrator) executeSuite(run *TestRun, suiteKey string) {
 			err = o.runSecurityRBAC(ctx, run, "security_rbac")
 		}
 		if err == nil {
+			err = o.runAuthOTP(ctx, run, "auth_otp")
+		}
+		if err == nil {
 			err = o.runIdempotency(ctx, run, "idempotency")
+		}
+		// API-проверки идут независимо друг от друга, поэтому включаются в
+		// «все» последними и не могут прервать сценарные сьюты.
+		for _, apiKey := range apiSuiteKeys() {
+			if err != nil {
+				break
+			}
+			err = o.executeAPISuiteByKey(ctx, run, apiKey)
 		}
 	default:
 		if o.hasCustom(suiteKey) {
@@ -619,15 +661,32 @@ func (o *TestOrchestrator) executeSuite(run *TestRun, suiteKey string) {
 		DurationMs: run.DurationMs,
 		Timestamp:  time.Now(),
 	}
-	if err != nil {
-		run.Status = "FAILED"
+	// A run that skipped checks has not proven what those checks assert, so it
+	// must not report itself as passed: "все проверки пройдены" over four
+	// skipped steps is the most expensive kind of green.
+	switch {
+	case err != nil:
+		run.Status = RunFailed
 		run.Error = err.Error()
 		summary.Level = LogError
-		summary.Message = fmt.Sprintf("❌ Suite execution failed: %v", err)
-	} else {
-		run.Status = "PASSED"
+		summary.Message = fmt.Sprintf("❌ Прогон провален: %v", err)
+	case run.FailedChecks > 0:
+		// An API suite runs every check independently and returns no error, so
+		// the failures live only in the results. Reporting the run as passed
+		// because nothing aborted it would hide them completely.
+		run.Status = RunFailed
+		run.Error = fmt.Sprintf("проверок провалено: %d из %d", run.FailedChecks, run.TotalChecks)
+		summary.Level = LogError
+		summary.Message = fmt.Sprintf("❌ Провалено %d из %d проверок.", run.FailedChecks, run.TotalChecks)
+	case run.SkippedChecks > 0:
+		run.Status = RunSkipped
+		summary.Level = LogWarn
+		summary.Message = fmt.Sprintf("⏭ Пройдено %d из %d проверок, пропущено %d — сьют выполнен не полностью.",
+			run.PassedChecks, run.TotalChecks, run.SkippedChecks)
+	default:
+		run.Status = RunPassed
 		summary.Level = LogSuccess
-		summary.Message = "✅ Suite finished successfully. All assertions passed."
+		summary.Message = "✅ Прогон завершён, все проверки пройдены."
 	}
 
 	o.Emit(summary)
@@ -690,17 +749,18 @@ func (o *TestOrchestrator) runFlowA(ctx context.Context, run *TestRun, suiteKey 
 		Timestamp: time.Now(),
 	})
 
-	clientPhone, _, err := o.engine.Fixtures.CreateUniqueClient(ctx)
+	// The restaurant order is assembled from the client's server-side cart, so
+	// the setup has to go all the way: an open restaurant that accepts
+	// delivery, a dish on its menu, a client with a saved address, and that
+	// dish already in the cart.
+	octx, err := o.engine.Fixtures.PrepareRestaurantOrder(ctx)
 	if err != nil {
-		o.checkDone(run, suiteKey, "setup", false, fmt.Sprintf("fixture client failed: %v", err), setupStart)
-		return fmt.Errorf("fixture client failed: %w", err)
+		o.checkDone(run, suiteKey, "setup", false, err.Error(), setupStart)
+		return err
 	}
-	restLogin, _, err := o.engine.Fixtures.CreateUniqueRestaurant(ctx)
-	if err != nil {
-		o.checkDone(run, suiteKey, "setup", false, fmt.Sprintf("fixture restaurant failed: %v", err), setupStart)
-		return fmt.Errorf("fixture restaurant failed: %w", err)
-	}
-	courierPhone, _, err := o.engine.Fixtures.CreateUniqueCourier(ctx)
+	clientPhone, restLogin := octx.ClientPhone, octx.RestLogin
+
+	courierID, _, err := o.engine.Fixtures.CreateUniqueCourier(ctx)
 	if err != nil {
 		o.checkDone(run, suiteKey, "setup", false, fmt.Sprintf("fixture courier failed: %v", err), setupStart)
 		return fmt.Errorf("fixture courier failed: %w", err)
@@ -716,7 +776,7 @@ func (o *TestOrchestrator) runFlowA(ctx context.Context, run *TestRun, suiteKey 
 		SuiteKey:   suiteKey,
 		StepType:   "GIVEN",
 		Level:      LogSuccess,
-		Message:    fmt.Sprintf("Identities ready: Client=%s, Rest=%s, Courier=%s", clientPhone, restLogin, courierPhone),
+		Message:    fmt.Sprintf("Identities ready: Client=%s, Rest=%s, Courier=%s", clientPhone, restLogin, courierID),
 		DurationMs: time.Since(setupStart).Milliseconds(),
 		Timestamp:  time.Now(),
 	})
@@ -736,13 +796,8 @@ func (o *TestOrchestrator) runFlowA(ctx context.Context, run *TestRun, suiteKey 
 		Timestamp: time.Now(),
 	})
 
-	createReq := client.CreateRestaurantOrderRequest{
-		RestID:          restLogin,
-		DeliveryAddress: "Москва, Тверская 15, кв. 10",
-		PaymentType:     "card",
-		Comment:         "Оставить у двери",
-		DishIdArray:     []int{1, 2},
-	}
+	createReq := octx.OrderRequest()
+	createReq.Comment = "Оставить у двери"
 	order, err := o.engine.ClientAPI.CreateRestaurantOrder(ctx, createReq)
 	if err != nil {
 		o.checkDone(run, suiteKey, "create_order", false, fmt.Sprintf("create order failed: %v", err), createStart)
@@ -777,11 +832,11 @@ func (o *TestOrchestrator) runFlowA(ctx context.Context, run *TestRun, suiteKey 
 		SuiteKey:  suiteKey,
 		StepType:  "WHEN",
 		Level:     LogInfo,
-		Message:   fmt.Sprintf("Step 2: Director sends POST /api/admin/give-order-to-courier (Courier: %s)", courierPhone),
+		Message:   fmt.Sprintf("Step 2: Director sends POST /api/admin/give-order-to-courier (Courier: %s)", courierID),
 		Timestamp: time.Now(),
 	})
 
-	order, err = o.engine.AdminAPI.AssignCourier(ctx, order.OrderID, courierPhone)
+	order, err = o.engine.AdminAPI.AssignCourier(ctx, order.OrderID, courierID)
 	if err != nil {
 		o.checkDone(run, suiteKey, "assign_courier", false, fmt.Sprintf("admin assign courier failed: %v", err), assignStart)
 		return fmt.Errorf("admin assign courier failed: %w", err)
@@ -901,7 +956,7 @@ func (o *TestOrchestrator) runFlowA(ctx context.Context, run *TestRun, suiteKey 
 		Timestamp: time.Now(),
 	})
 
-	_ = o.engine.CourierAPI.TakeOrder(ctx, order.OrderID, courierPhone)
+	_ = o.engine.CourierAPI.TakeOrder(ctx, order.OrderID, courierID)
 	order, err = o.engine.CourierAPI.ChangeStatus(ctx, order.OrderID, "shipping", false)
 	if err != nil {
 		o.checkDone(run, suiteKey, "pickup", false, fmt.Sprintf("courier shipping failed: %v", err), pickupStart)
@@ -988,23 +1043,41 @@ func (o *TestOrchestrator) runFlowB(ctx context.Context, run *TestRun, suiteKey 
 	setupStart := time.Now()
 	o.checkStart(run, suiteKey, "setup")
 	clientPhone, _, _ := o.engine.Fixtures.CreateUniqueClient(ctx)
-	courierPhone, _, _ := o.engine.Fixtures.CreateUniqueCourier(ctx)
+	courierID, _, _ := o.engine.Fixtures.CreateUniqueCourier(ctx)
 
 	if o.engine.Config.AdminToken == "" {
 		_, _ = o.engine.SessionMgr.LoginAdmin(ctx, o.engine.Config.AdminLogin, o.engine.Config.AdminPassword)
 	}
 
-	o.checkDone(run, suiteKey, "setup", true, fmt.Sprintf("Уникальные фикстуры созданы: клиент %s, курьер %s", clientPhone, courierPhone), setupStart)
+	o.checkDone(run, suiteKey, "setup", true, fmt.Sprintf("Уникальные фикстуры созданы: клиент %s, курьер %s", clientPhone, courierID), setupStart)
 
 	createStart := time.Now()
 	o.checkStart(run, suiteKey, "create_parcel")
-	req := client.CreateIndependentOrderRequest{
-		AddressA:    "Москва, ул. Арбат 10 (Точка А)",
-		AddressB:    "Москва, Кутузовский пр-т 32 (Точка Б)",
-		Comment:     "Документы с печатью",
-		PaymentType: "card",
-		Price:       500,
+
+	// Parcel delivery runs on a platform working window (10:00–23:00). Outside
+	// it every parcel is refused with 422 OUTSIDE_WORKING_HOURS: the platform
+	// is closed, which must read as skipped rather than failed.
+	if available, window, aerr := o.engine.Fixtures.ParcelOrderingAvailable(ctx); aerr == nil && !available {
+		reason := fmt.Sprintf("платформа принимает посылки только в окне %s", window)
+		for _, id := range []string{"create_parcel", "assign_courier", "pickup", "delivered"} {
+			o.checkSkip(run, suiteKey, id, reason)
+		}
+		o.Emit(&ExecutionEvent{
+			RunID:     run.ID,
+			SuiteName: suiteName,
+			SuiteKey:  suiteKey,
+			StepType:  "INFO",
+			Level:     LogWarn,
+			Message:   "⏸ " + reason,
+			Timestamp: time.Now(),
+		})
+		return nil
 	}
+
+	// A parcel is addressed by coordinates, not by text, and carries the
+	// recipient plus the cargo type.
+	req := o.engine.Fixtures.ParcelRequest("")
+	req.Comment = "Документы с печатью"
 
 	order, err := o.engine.ClientAPI.CreateIndependentOrder(ctx, req)
 	if err != nil {
@@ -1032,7 +1105,7 @@ func (o *TestOrchestrator) runFlowB(ctx context.Context, run *TestRun, suiteKey 
 	// Assign courier
 	assignStart := time.Now()
 	o.checkStart(run, suiteKey, "assign_courier")
-	order, err = o.engine.AdminAPI.AssignCourier(ctx, order.OrderID, courierPhone)
+	order, err = o.engine.AdminAPI.AssignCourier(ctx, order.OrderID, courierID)
 	if err != nil {
 		o.checkDone(run, suiteKey, "assign_courier", false, err.Error(), assignStart)
 		return err
@@ -1046,7 +1119,7 @@ func (o *TestOrchestrator) runFlowB(ctx context.Context, run *TestRun, suiteKey 
 		SuiteKey:     suiteKey,
 		StepType:     "THEN",
 		Level:        LogSuccess,
-		Message:      fmt.Sprintf("Courier %s assigned to parcel. Status: COURIER_ASSIGNED.", courierPhone),
+		Message:      fmt.Sprintf("Courier %s assigned to parcel. Status: COURIER_ASSIGNED.", courierID),
 		CurrentState: statemachine.StatusCourierAssigned,
 		OrderID:      order.OrderID,
 		Timestamp:    time.Now(),
@@ -1229,15 +1302,14 @@ func (o *TestOrchestrator) runCancellation(ctx context.Context, run *TestRun, su
 	cancelStart := time.Now()
 	o.checkStart(run, suiteKey, "cancel_at_new")
 
-	_, clientToken, _ := o.engine.Fixtures.CreateUniqueClient(ctx)
-	o.engine.SessionMgr.SetClientSession("c_cancel", clientToken, "+79991234567", "Client")
+	octx, err := o.engine.Fixtures.PrepareRestaurantOrder(ctx)
+	if err != nil {
+		o.checkDone(run, suiteKey, "cancel_at_new", false, err.Error(), cancelStart)
+		return err
+	}
 
 	// 1. Cancel at NEW -> Should succeed
-	order, err := o.engine.ClientAPI.CreateRestaurantOrder(ctx, client.CreateRestaurantOrderRequest{
-		RestID:          "rest_cancel_test",
-		DeliveryAddress: "Москва, Тверская 10",
-		PaymentType:     "card",
-	})
+	order, err := o.engine.ClientAPI.CreateRestaurantOrder(ctx, octx.OrderRequest())
 	if err != nil {
 		o.checkDone(run, suiteKey, "cancel_at_new", false, err.Error(), cancelStart)
 		return err
@@ -1266,26 +1338,15 @@ func (o *TestOrchestrator) runCancellation(ctx context.Context, run *TestRun, su
 	cookCancelStart := time.Now()
 	o.checkStart(run, suiteKey, "reject_during_cooking")
 
-	_, cookClientToken, err := o.engine.Fixtures.CreateUniqueClient(ctx)
+	// A second, independent order: the one cancelled above is gone, and the
+	// cart it was built from was consumed with it.
+	cookCtx, err := o.engine.Fixtures.PrepareRestaurantOrder(ctx)
 	if err != nil {
-		msg := fmt.Sprintf("fixture client failed: %v", err)
-		o.checkDone(run, suiteKey, "reject_during_cooking", false, msg, cookCancelStart)
-		return fmt.Errorf("%s", msg)
-	}
-	o.engine.SessionMgr.SetClientSession("c_cancel_cooking", cookClientToken, "+79991234567", "Client")
-
-	restCookLogin, _, err := o.engine.Fixtures.CreateUniqueRestaurant(ctx)
-	if err != nil {
-		msg := fmt.Sprintf("fixture restaurant failed: %v", err)
-		o.checkDone(run, suiteKey, "reject_during_cooking", false, msg, cookCancelStart)
-		return fmt.Errorf("%s", msg)
+		o.checkDone(run, suiteKey, "reject_during_cooking", false, err.Error(), cookCancelStart)
+		return err
 	}
 
-	cookingOrder, err := o.engine.ClientAPI.CreateRestaurantOrder(ctx, client.CreateRestaurantOrderRequest{
-		RestID:          restCookLogin,
-		DeliveryAddress: "Москва, Тверская 12",
-		PaymentType:     "card",
-	})
+	cookingOrder, err := o.engine.ClientAPI.CreateRestaurantOrder(ctx, cookCtx.OrderRequest())
 	if err != nil {
 		msg := fmt.Sprintf("order creation for cooking-cancel scenario failed: %v", err)
 		o.checkDone(run, suiteKey, "reject_during_cooking", false, msg, cookCancelStart)
@@ -1302,12 +1363,14 @@ func (o *TestOrchestrator) runCancellation(ctx context.Context, run *TestRun, su
 
 	err = o.engine.ClientAPI.CancelOrder(ctx, cookingOrder.OrderID, "Попытка отменить заказ во время готовки")
 	if err == nil {
-		msg := fmt.Sprintf("cancellation during COOKING was expected to be rejected with 403, but order #%d was cancelled", cookingOrder.OrderNumber)
+		msg := fmt.Sprintf("отмена во время готовки должна отклоняться, но заказ #%d был отменён", cookingOrder.OrderNumber)
 		o.checkDone(run, suiteKey, "reject_during_cooking", false, msg, cookCancelStart)
 		return fmt.Errorf("%s", msg)
 	}
-	if !strings.Contains(err.Error(), "403") {
-		msg := fmt.Sprintf("expected 403 on cancellation during COOKING, got: %v", err)
+	// The refusal is a state conflict (409 CANCEL_NOT_ALLOWED), not an
+	// authorization one: the client owns the order, the status forbids it.
+	if !client.IsStatus(err, http.StatusConflict) {
+		msg := fmt.Sprintf("ожидался 409 CANCEL_NOT_ALLOWED при отмене во время готовки, получено: %v", err)
 		o.checkDone(run, suiteKey, "reject_during_cooking", false, msg, cookCancelStart)
 		return fmt.Errorf("%s", msg)
 	}
@@ -1318,7 +1381,7 @@ func (o *TestOrchestrator) runCancellation(ctx context.Context, run *TestRun, su
 		SuiteKey:     suiteKey,
 		StepType:     "THEN",
 		Level:        LogSuccess,
-		Message:      fmt.Sprintf("✓ Correctly rejected client cancellation of order #%d while COOKING (403 Forbidden)", cookingOrder.OrderNumber),
+		Message:      fmt.Sprintf("✓ Отмена заказа #%d во время готовки отклонена (409 CANCEL_NOT_ALLOWED)", cookingOrder.OrderNumber),
 		CurrentState: statemachine.StatusPreparing,
 		OrderID:      cookingOrder.OrderID,
 		Timestamp:    time.Now(),
@@ -1419,9 +1482,9 @@ func (o *TestOrchestrator) runSecurityRBAC(ctx context.Context, run *TestRun, su
 	}
 
 	dishReq := client.CreateDishRequest{
-		Name:   "Пицца Несанкционированная",
-		Price:  990,
-		RestID: "rest_123",
+		Title:      "Пицца Несанкционированная",
+		Price:      990,
+		CategoryID: "00000000-0000-0000-0000-000000000000",
 	}
 	resp, rerr := o.engine.HTTPClient.Request(ctx, "POST", "/api/rests/dishes", courierToken, dishReq, nil)
 	if rerr == nil {
@@ -1468,15 +1531,14 @@ func (o *TestOrchestrator) runIdempotency(ctx context.Context, run *TestRun, sui
 	idemStart := time.Now()
 	o.checkStart(run, suiteKey, "same_key_same_order")
 
-	_, clientToken, _ := o.engine.Fixtures.CreateUniqueClient(ctx)
-	o.engine.SessionMgr.SetClientSession("c_idem", clientToken, "+79991234567", "Client")
+	octx, err := o.engine.Fixtures.PrepareRestaurantOrder(ctx)
+	if err != nil {
+		o.checkDone(run, suiteKey, "same_key_same_order", false, err.Error(), idemStart)
+		return err
+	}
 
 	idemKey := uuid.New().String()
-	req := client.CreateRestaurantOrderRequest{
-		RestID:          "rest_idem",
-		DeliveryAddress: "Москва, Арбат 1",
-		PaymentType:     "card",
-	}
+	req := octx.OrderRequest()
 
 	order1, err := o.engine.ClientAPI.CreateRestaurantOrderWithIdempotency(ctx, req, idemKey)
 	if err != nil {
@@ -1531,12 +1593,8 @@ func (o *TestOrchestrator) runIdempotency(ctx context.Context, run *TestRun, sui
 
 			// Independent HTTP call: token passed explicitly, not via SessionMgr
 			var orderResp client.OrderResponse
-			orderReq := client.CreateIndependentOrderRequest{
-				AddressA:    fmt.Sprintf("Точка А worker %d", idx),
-				AddressB:    fmt.Sprintf("Точка Б worker %d", idx),
-				PaymentType: "card",
-				Price:       float64(300 + idx*10),
-			}
+			orderReq := o.engine.Fixtures.ParcelRequest("")
+			orderReq.Comment = fmt.Sprintf("Параллельный воркер %d", idx)
 			if _, werr = o.engine.HTTPClient.Request(ctx, "POST", "/api/clients/independent-order", cToken, orderReq, &orderResp); werr != nil {
 				errs <- fmt.Errorf("worker %d (%s): заказ не создан: %w", idx, clientPhone, werr)
 				return
