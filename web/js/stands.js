@@ -191,8 +191,8 @@ function renderStandsCards() {
     const active = !!s.isActive;
 
     const badges = [
-      active ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-green-500/15 text-green-400 border-green-500/30 shrink-0">АКТИВЕН</span>' : '',
-      s.isMock ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/30 shrink-0">МОК</span>' : '',
+      active ? '<span class="text-[9px] font-mono font-medium px-1.5 py-0.5 rounded border bg-zinc-800 text-zinc-200 border-zinc-600 shrink-0">АКТИВЕН</span>' : '',
+      s.isMock ? '<span class="text-[9px] font-mono font-medium px-1.5 py-0.5 rounded border bg-zinc-800 text-zinc-400 border-zinc-700 shrink-0">МОК</span>' : '',
     ].join('');
 
     const undeletable = active || s.isMock;

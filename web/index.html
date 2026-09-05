@@ -79,8 +79,8 @@
 
       <!-- Right: global actions -->
       <div class="flex items-center space-x-2 shrink-0">
-        <button onclick="openConfigModal()" title="Настройки стенда" class="md:hidden w-9 h-9 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-lg transition">
-          <i class="fa-solid fa-gear"></i>
+        <button onclick="openStandsModal()" title="Управление стендами" class="md:hidden w-9 h-9 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-lg transition">
+          <i class="fa-solid fa-server"></i>
         </button>
 
         <!-- Theme toggle -->
@@ -142,46 +142,49 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 
         <!-- Stand -->
-        <div class="stat-card flex flex-col justify-between space-y-2">
+        <div class="stat-card flex flex-col justify-between space-y-2 cursor-pointer hover:border-zinc-500 transition" onclick="openStandsModal()" title="Кликните для переключения или настройки стенда">
           <div class="flex items-center justify-between">
-            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Стенд</span>
-            <button onclick="openConfigModal()" title="Настроить стенд" class="text-slate-500 hover:text-white transition text-xs"><i class="fa-solid fa-gear"></i></button>
+            <span class="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Стенд</span>
+            <span class="text-zinc-400 hover:text-white transition text-xs"><i class="fa-solid fa-server"></i></span>
           </div>
           <div class="flex items-center gap-2 min-w-0">
-            <span id="ovEnvDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
-            <span id="ovEnvMode" class="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-400 border-amber-500/30 shrink-0">…</span>
+            <span id="ovEnvDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
+            <span id="ovEnvMode" class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border bg-zinc-800 text-zinc-300 border-zinc-700 shrink-0">…</span>
           </div>
-          <div id="ovEnvStand" class="text-[11px] font-semibold text-slate-300 truncate" title="Имя активного стенда">Стенд: …</div>
-          <div id="ovEnvUrl" class="font-mono text-xs text-emerald-400 break-all leading-snug">—</div>
+          <div id="ovEnvStand" class="text-[11px] font-semibold text-zinc-300 truncate" title="Имя активного стенда">Стенд: …</div>
+          <div id="ovEnvUrl" class="font-mono text-xs text-zinc-200 truncate leading-snug">—</div>
         </div>
 
         <!-- Role sessions -->
-        <div class="stat-card flex flex-col justify-between space-y-2">
-          <span class="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Сессии ролей</span>
-          <div class="flex items-center gap-3 flex-wrap">
-            <span class="flex items-center gap-1.5" title="Client"><span id="ovRole-client" class="role-dot off"></span><span class="text-[10px] text-slate-400">Client</span></span>
-            <span class="flex items-center gap-1.5" title="Restaurant"><span id="ovRole-rest" class="role-dot off"></span><span class="text-[10px] text-slate-400">Rest</span></span>
-            <span class="flex items-center gap-1.5" title="Courier"><span id="ovRole-courier" class="role-dot off"></span><span class="text-[10px] text-slate-400">Courier</span></span>
-            <span class="flex items-center gap-1.5" title="Admin"><span id="ovRole-admin" class="role-dot off"></span><span class="text-[10px] text-slate-400">Admin</span></span>
+        <div class="stat-card flex flex-col justify-between space-y-2 cursor-pointer hover:border-zinc-500 transition" onclick="switchTab('vault')" title="Кликните для просмотра токенов в Vault">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Сессии ролей</span>
+            <span class="text-zinc-400 hover:text-white transition text-xs"><i class="fa-solid fa-key"></i></span>
           </div>
-          <a href="#" onclick="switchTab('vault'); return false;" class="text-[11px] font-semibold text-slate-400 hover:text-green-400 transition" id="ovRolesCount">— из 4 ролей</a>
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="flex items-center gap-1.5" title="Client"><span id="ovRole-client" class="role-dot off"></span><span class="text-[10px] text-zinc-400">Client</span></span>
+            <span class="flex items-center gap-1.5" title="Restaurant"><span id="ovRole-rest" class="role-dot off"></span><span class="text-[10px] text-zinc-400">Rest</span></span>
+            <span class="flex items-center gap-1.5" title="Courier"><span id="ovRole-courier" class="role-dot off"></span><span class="text-[10px] text-zinc-400">Courier</span></span>
+            <span class="flex items-center gap-1.5" title="Admin"><span id="ovRole-admin" class="role-dot off"></span><span class="text-[10px] text-zinc-400">Admin</span></span>
+          </div>
+          <span class="text-[11px] font-semibold text-zinc-300 transition" id="ovRolesCount">— из 4 ролей</span>
         </div>
 
         <!-- Suites count -->
-        <div class="stat-card flex flex-col justify-between space-y-1">
-          <span class="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Всего сютов</span>
+        <div class="stat-card flex flex-col justify-between space-y-1 cursor-pointer hover:border-zinc-500 transition" onclick="switchTab('checklists')" title="Кликните для перехода к тестам">
+          <span class="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Всего сютов</span>
           <div class="flex items-baseline gap-2">
-            <span id="ovSuitesTotal" class="text-3xl font-black text-white">—</span>
-            <i class="fa-solid fa-layer-group text-slate-600"></i>
+            <span id="ovSuitesTotal" class="text-3xl font-bold text-white">—</span>
+            <i class="fa-solid fa-layer-group text-zinc-500 text-sm"></i>
           </div>
-          <span id="ovSuitesBreakdown" class="text-[11px] text-slate-400">загрузка реестра…</span>
+          <span id="ovSuitesBreakdown" class="text-[11px] text-zinc-400">загрузка реестра…</span>
         </div>
 
         <!-- Pass rate -->
-        <div class="stat-card flex flex-col justify-between space-y-1">
-          <span class="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Проходность (последние 20)</span>
-          <span id="ovPassRate" class="text-3xl font-black text-slate-500">—</span>
-          <span id="ovPassRateSub" class="text-[11px] text-slate-400">нет данных об истории</span>
+        <div class="stat-card flex flex-col justify-between space-y-1 cursor-pointer hover:border-zinc-500 transition" onclick="switchTab('analysis')" title="Кликните для детального анализа качества">
+          <span class="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Проходность (последние 20)</span>
+          <span id="ovPassRate" class="text-3xl font-bold text-zinc-200">—</span>
+          <span id="ovPassRateSub" class="text-[11px] text-zinc-400">нет данных об истории</span>
         </div>
       </div>
 
@@ -191,18 +194,22 @@
           <i class="fa-solid fa-bolt text-zinc-400"></i>
           <span>Быстрые действия</span>
         </h2>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <button onclick="openRegressionModal()" title="Полный регресс: все сюты на выбранном стенде со сводкой в Telegram"
             class="qa-btn bg-white hover:bg-zinc-200 text-zinc-950 font-semibold shadow-sm disabled:opacity-50">
             <i class="fa-solid fa-play"></i><span>Регресс после релиза</span>
           </button>
-          <button onclick="goToChecklists()" title="Перейти к сетке тестов и чеклистов"
+          <button onclick="goToChecklists()" title="Перейти к реестру тестов и чеклистов"
             class="qa-btn bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder">
             <i class="fa-solid fa-list-check text-zinc-400"></i><span>К чеклистам</span>
           </button>
           <button onclick="newScenarioFromOverview()" title="Создать свой сценарий в редакторе"
             class="qa-btn bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder">
             <i class="fa-solid fa-plus text-zinc-400"></i><span>Новый сценарий</span>
+          </button>
+          <button onclick="switchTab('mobile')" title="Контрактное тестирование мобильных DTO"
+            class="qa-btn bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder">
+            <i class="fa-solid fa-mobile-screen text-zinc-400"></i><span>Мобильные DTO</span>
           </button>
         </div>
       </div>
@@ -302,6 +309,27 @@
           </div>
         </div>
 
+        <!-- Filters & Search Toolbar -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-t border-darkborder pt-3">
+          <div class="flex items-center gap-1.5 flex-wrap" id="suitesFilterGroup">
+            <span class="text-xs text-zinc-400 mr-1">Фильтр:</span>
+            <button onclick="setSuitesFilter('all')" id="sf-all" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-white transition">Все</button>
+            <button onclick="setSuitesFilter('flow')" id="sf-flow" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition">Сценарии (Flow)</button>
+            <button onclick="setSuitesFilter('api')" id="sf-api" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition">API ручки</button>
+            <button onclick="setSuitesFilter('custom')" id="sf-custom" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition">Кастомные</button>
+            <button onclick="setSuitesFilter('failed')" id="sf-failed" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-900 hover:bg-zinc-800 text-red-400 transition"><i class="fa-solid fa-circle-xmark mr-1"></i>Сбои</button>
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <button onclick="selectAllBatchVisible()" title="Отметить все отображаемые сьюты в батч" class="px-2.5 py-1 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition shrink-0">Выбрать все</button>
+            <button onclick="clearAllBatch()" title="Снять отметку со всех сьютов" class="px-2.5 py-1 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition shrink-0">Снять выбор</button>
+            <div class="relative w-full sm:w-64">
+              <input type="text" id="suitesSearchInput" placeholder="Поиск теста или ручки…" oninput="filterSuites(this.value)" class="w-full pl-8 pr-3 py-1 text-xs">
+              <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-zinc-500 text-xs"></i>
+            </div>
+          </div>
+        </div>
+
         <!-- Status Legend -->
         <div class="flex items-center gap-4 flex-wrap text-[10px] text-zinc-400 border-t border-darkborder pt-3">
           <span class="font-semibold text-zinc-300 uppercase tracking-wider">Легенда:</span>
@@ -343,6 +371,10 @@
           <button onclick="openReplenishModal(false)" class="w-full px-3 py-2 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder font-semibold rounded-lg transition flex items-center justify-center gap-2 shadow-sm">
             <i class="fa-solid fa-wand-magic-sparkles text-zinc-400"></i><span>Автопополнение сценариев</span>
           </button>
+          <div class="relative">
+            <input type="text" id="scenarioSearchInput" placeholder="Поиск сценария…" oninput="filterScenarioList(this.value)" class="w-full pl-8 pr-2.5 py-1.5 text-xs">
+            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-zinc-500 text-xs"></i>
+          </div>
           <div id="scenarioList" class="space-y-2 max-h-[560px] overflow-y-auto pr-1">
             <div class="text-xs text-zinc-500 italic p-3 bg-zinc-900/50 rounded-lg border border-darkborder">Загрузка...</div>
           </div>
@@ -493,16 +525,11 @@
         <button onclick="document.getElementById('metricsContainer').scrollIntoView({behavior:'smooth'})" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center gap-1.5 shrink-0 transition">
           <i class="fa-solid fa-gauge-high text-zinc-400"></i><span>Метрики качества</span>
         </button>
-        <button onclick="document.getElementById('mobileContractContainer').scrollIntoView({behavior:'smooth'})" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 flex items-center gap-1.5 shrink-0 font-medium transition">
-          <i class="fa-solid fa-mobile-screen text-zinc-400"></i><span>Мобильные DTO (Flutter / iOS / Android)</span>
-          <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-700 text-zinc-300">36</span>
-        </button>
       </div>
 
       <div id="coverageContainer"></div>
       <div id="diagnosticsContainer"></div>
       <div id="metricsContainer"></div>
-      <div id="mobileContractContainer"></div>
     </section>
 
     <!-- ================================================== -->
@@ -544,14 +571,33 @@
 
       <!-- 1. SUB-VIEW: HISTORY -->
       <div id="tools-subview-history" class="tools-subview space-y-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-base font-semibold text-white flex items-center gap-2">
-            <i class="fa-solid fa-clock-rotate-left text-zinc-400"></i>
-            <span>История выполнения тестов</span>
-          </h2>
-          <button onclick="loadHistory()" title="Обновить список прогонов" class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder rounded-lg transition flex items-center gap-1.5">
-            <i class="fa-solid fa-arrows-rotate mr-1"></i>Обновить
-          </button>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left text-zinc-400"></i>
+              <span>История выполнения тестов</span>
+            </h2>
+            <p class="text-xs text-zinc-400 mt-0.5">Журнал всех запусков сьют-тестов, длительности и статусы проверок</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="loadHistory()" title="Обновить список прогонов" class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder rounded-lg transition flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-arrows-rotate mr-1"></i>Обновить
+            </button>
+          </div>
+        </div>
+
+        <!-- History Filter Bar -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-darkcard border border-darkborder rounded-xl">
+          <div class="flex items-center gap-1.5 flex-wrap" id="historyFilterGroup">
+            <span class="text-xs text-zinc-400 mr-1">Статус:</span>
+            <button onclick="setHistoryFilter('all')" id="hf-all" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-white transition">Все</button>
+            <button onclick="setHistoryFilter('PASSED')" id="hf-passed" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition">Успешные</button>
+            <button onclick="setHistoryFilter('FAILED')" id="hf-failed" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-900 hover:bg-zinc-800 text-red-400 transition"><i class="fa-solid fa-circle-xmark mr-1"></i>Сбои</button>
+          </div>
+          <div class="relative w-full sm:w-72">
+            <input type="text" id="historySearchInput" placeholder="Поиск по сьюту или Run ID…" oninput="filterHistory(this.value)" class="w-full pl-8 pr-3 py-1.5 text-xs">
+            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-zinc-500 text-xs"></i>
+          </div>
         </div>
 
         <div class="bg-darkcard border border-darkborder rounded-xl overflow-hidden">
@@ -838,10 +884,10 @@
         </div>
 
         <!-- Результат импорта (после успешного POST /api/spec/import) -->
-        <div id="specResultBox" class="hidden px-3.5 py-2.5 rounded-lg bg-green-500/10 border border-green-500/30 flex flex-wrap items-center gap-3">
-          <span id="specResultText" class="text-xs text-green-300 font-semibold flex-1 min-w-[200px] leading-relaxed"></span>
-          <button onclick="gotoChecklists()" title="Открыть реестр тестов со сгенерированными сценариями"
-            class="px-3 py-1.5 text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition shrink-0">
+        <div id="specResultBox" class="hidden px-3.5 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 flex flex-wrap items-center gap-3">
+          <span id="specResultText" class="text-xs text-zinc-200 font-medium flex-1 min-w-[200px] leading-relaxed"></span>
+          <button onclick="goToChecklists()" title="Открыть реестр тестов со сгенерированными сценариями"
+            class="px-3 py-1.5 text-[11px] bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-sm transition shrink-0">
             <i class="fa-solid fa-list-check mr-1"></i>Перейти к чеклистам
           </button>
         </div>
@@ -1112,42 +1158,6 @@
       <div class="flex justify-end space-x-2 pt-2 border-t border-darkborder">
         <button onclick="closeQuickAuthModal()" class="px-4 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg">Отмена</button>
         <button onclick="submitQuickAuth(this)" class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg shadow-sm">Получить токен</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Configuration Modal -->
-  <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-darkcard border border-darkborder rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-      <div class="flex items-center justify-between border-b border-darkborder pb-3">
-        <h3 class="font-semibold text-white text-base flex items-center space-x-2">
-          <i class="fa-solid fa-sliders text-zinc-400"></i>
-          <span>Настройки стенда &amp; Окружения</span>
-        </h3>
-        <button onclick="closeConfigModal()" title="Закрыть" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-
-      <div class="space-y-3 text-xs">
-        <div>
-          <label class="block font-semibold mb-1">Target Base URL (Бэкенд доставки)</label>
-          <input type="text" id="cfgBaseUrl" class="w-full p-2 font-mono text-xs">
-          <p class="text-[10px] text-zinc-500 mt-1">Пример: http://localhost:3005 или http://host.docker.internal:3005</p>
-        </div>
-
-        <div>
-          <label class="block font-semibold mb-1">Admin Login (Директор)</label>
-          <input type="text" id="cfgAdminLogin" class="w-full p-2 font-mono text-xs">
-        </div>
-
-        <div>
-          <label class="block font-semibold mb-1">Admin Password</label>
-          <input type="password" id="cfgAdminPassword" class="w-full p-2 font-mono text-xs">
-        </div>
-      </div>
-
-      <div class="flex justify-end space-x-2 pt-2 border-t border-darkborder">
-        <button onclick="closeConfigModal()" class="px-4 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg">Отмена</button>
-        <button onclick="saveConfig(this)" class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg shadow-sm">Сохранить</button>
       </div>
     </div>
   </div>
@@ -1459,72 +1469,72 @@
     <div class="bg-darkcard border border-darkborder rounded-xl max-w-xl w-full p-6 space-y-4 shadow-2xl pop-in">
       <div class="flex items-center justify-between border-b border-darkborder pb-3">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <div class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300">
             <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-white">Автопополнение тестовых сценариев</h3>
-            <p class="text-[11px] text-slate-400">Умная генерация сценариев из OpenAPI спецификации</p>
+            <h3 class="text-sm font-semibold text-white">Автопополнение тестовых сценариев</h3>
+            <p class="text-[11px] text-zinc-400">Умная генерация сценариев из OpenAPI спецификации</p>
           </div>
         </div>
-        <button onclick="closeReplenishModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeReplenishModal()" class="text-zinc-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="space-y-3 text-xs">
-        <label class="block font-bold text-slate-300">Стратегии генерации сценариев:</label>
+        <label class="block font-semibold text-zinc-300">Стратегии генерации сценариев:</label>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-slate-900/80 border border-darkborder hover:border-slate-600 transition cursor-pointer">
-            <input type="checkbox" id="stratSmoke" checked class="mt-0.5 rounded text-emerald-500 focus:ring-0 focus:outline-none bg-slate-800 border-darkborder">
+          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-zinc-900 border border-darkborder hover:border-zinc-700 transition cursor-pointer">
+            <input type="checkbox" id="stratSmoke" checked class="mt-0.5 rounded accent-zinc-400">
             <div>
-              <span class="font-bold text-slate-200 block">Smoke-тесты</span>
-              <span class="text-[11px] text-slate-400">Быстрые смоук-проверки всех ручек с ролями и данными (!5xx)</span>
+              <span class="font-semibold text-zinc-200 block">Smoke-тесты</span>
+              <span class="text-[11px] text-zinc-400">Быстрые смоук-проверки всех ручек с ролями и данными (!5xx)</span>
             </div>
           </label>
 
-          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-slate-900/80 border border-darkborder hover:border-slate-600 transition cursor-pointer">
-            <input type="checkbox" id="stratCRUD" checked class="mt-0.5 rounded text-emerald-500 focus:ring-0 focus:outline-none bg-slate-800 border-darkborder">
+          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-zinc-900 border border-darkborder hover:border-zinc-700 transition cursor-pointer">
+            <input type="checkbox" id="stratCRUD" checked class="mt-0.5 rounded accent-zinc-400">
             <div>
-              <span class="font-bold text-slate-200 block">CRUD Жизненный цикл</span>
-              <span class="text-[11px] text-slate-400">Цепочки Create → Read → Update → Delete с извлечением ID</span>
+              <span class="font-semibold text-zinc-200 block">CRUD Жизненный цикл</span>
+              <span class="text-[11px] text-zinc-400">Цепочки Create → Read → Update → Delete с извлечением ID</span>
             </div>
           </label>
 
-          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-slate-900/80 border border-darkborder hover:border-slate-600 transition cursor-pointer">
-            <input type="checkbox" id="stratRBAC" checked class="mt-0.5 rounded text-emerald-500 focus:ring-0 focus:outline-none bg-slate-800 border-darkborder">
+          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-zinc-900 border border-darkborder hover:border-zinc-700 transition cursor-pointer">
+            <input type="checkbox" id="stratRBAC" checked class="mt-0.5 rounded accent-zinc-400">
             <div>
-              <span class="font-bold text-slate-200 block">RBAC &amp; Безопасность</span>
-              <span class="text-[11px] text-slate-400">Матрица доступа: гейты 401 (без токена) и 403 (между ролями)</span>
+              <span class="font-semibold text-zinc-200 block">RBAC &amp; Безопасность</span>
+              <span class="text-[11px] text-zinc-400">Матрица доступа: гейты 401 (без токена) и 403 (между ролями)</span>
             </div>
           </label>
 
-          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-slate-900/80 border border-darkborder hover:border-slate-600 transition cursor-pointer">
-            <input type="checkbox" id="stratNegative" checked class="mt-0.5 rounded text-emerald-500 focus:ring-0 focus:outline-none bg-slate-800 border-darkborder">
+          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-zinc-900 border border-darkborder hover:border-zinc-700 transition cursor-pointer">
+            <input type="checkbox" id="stratNegative" checked class="mt-0.5 rounded accent-zinc-400">
             <div>
-              <span class="font-bold text-slate-200 block">Негативная валидация</span>
-              <span class="text-[11px] text-slate-400">Пустые тела {}, битые схемы и граничные значения (4xx)</span>
+              <span class="font-semibold text-zinc-200 block">Негативная валидация</span>
+              <span class="text-[11px] text-zinc-400">Пустые тела {}, битые схемы и граничные значения (4xx)</span>
             </div>
           </label>
         </div>
 
         <div class="pt-2 border-t border-darkborder space-y-2">
-          <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
-            <input type="checkbox" id="repOptUncoveredOnly" class="rounded text-emerald-500 focus:ring-0 bg-slate-800 border-darkborder">
+          <label class="flex items-center gap-2 text-zinc-300 cursor-pointer">
+            <input type="checkbox" id="repOptUncoveredOnly" class="rounded accent-zinc-400">
             <span>Генерировать тесты <strong>только для непокрытых</strong> эндпоинтов</span>
           </label>
-          <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
-            <input type="checkbox" id="repOptOverwrite" class="rounded text-emerald-500 focus:ring-0 bg-slate-800 border-darkborder">
+          <label class="flex items-center gap-2 text-zinc-300 cursor-pointer">
+            <input type="checkbox" id="repOptOverwrite" class="rounded accent-zinc-400">
             <span>Перезаписать ранее сгенерированные авто-сценарии (spec_*)</span>
           </label>
         </div>
 
         <!-- Preview Box -->
-        <div id="replenishPreviewBox" class="hidden p-3 bg-slate-950/60 border border-darkborder rounded-lg space-y-2">
+        <div id="replenishPreviewBox" class="hidden p-3 bg-zinc-900 border border-darkborder rounded-lg space-y-2">
           <div id="replenishPreviewContent"></div>
         </div>
       </div>
 
       <div class="flex items-center justify-between pt-3 border-t border-darkborder gap-2">
-        <button onclick="runReplenishPreview(this)" class="px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition">
+        <button onclick="runReplenishPreview(this)" class="px-3 py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition">
           <i class="fa-solid fa-eye mr-1.5"></i>Предпросмотр
         </button>
         <div class="flex items-center gap-2">

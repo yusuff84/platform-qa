@@ -64,16 +64,16 @@ function renderSpecStatus(meta) {
   const endpoints = Array.isArray(meta.endpoints) ? meta.endpoints.length : 0;
 
   box.innerHTML =
-    '<span class="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(52,211,153,.8)] animate-pulse shrink-0"></span>' +
-    '<span class="font-semibold text-slate-200">' + escapeHtml(title) +
+    '<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>' +
+    '<span class="font-semibold text-zinc-200">' + escapeHtml(title) +
     ' · версия ' + escapeHtml(String(version)) +
     ' · ' + endpoints + ' ' + pluralRu(endpoints, ['эндпоинт', 'эндпоинта', 'эндпоинтов']) + '</span>' +
     '<button onclick="openReplenishModal(false)" title="Умное автопополнение сценариев (Smoke, CRUD, RBAC, Negative)"' +
     ' class="px-2.5 py-1 text-[11px] bg-white hover:bg-zinc-200 text-zinc-950 rounded-lg transition shrink-0 font-semibold shadow-sm"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Автопополнение тестов</button>' +
     '<button onclick="regenerateSpec(this)" title="Пересоздать spec_smoke* сценарии из сохранённой спеки"' +
-    ' class="px-2.5 py-1 text-[11px] bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder rounded-lg transition shrink-0"><i class="fa-solid fa-rotate mr-1"></i>Перегенерировать</button>' +
+    ' class="px-2.5 py-1 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition shrink-0"><i class="fa-solid fa-rotate mr-1"></i>Перегенерировать</button>' +
     '<button onclick="deleteSpec(this)" title="Удалить спецификацию"' +
-    ' class="px-2.5 py-1 text-[11px] bg-zinc-900 hover:bg-red-950 text-red-400 border border-darkborder rounded-lg transition shrink-0"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>';
+    ' class="px-2.5 py-1 text-[11px] bg-zinc-800 hover:bg-red-950 text-red-400 border border-darkborder rounded-lg transition shrink-0"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>';
 }
 
 // ---------- Импорт по URL ----------

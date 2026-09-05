@@ -136,6 +136,14 @@ async function loadScenarioEditor() {
   if (editorState) renderDependsChips();
 }
 
+let scenarioSearchQuery = '';
+
+function filterScenarioList(query) {
+  scenarioSearchQuery = (query || '').toLowerCase().trim();
+  renderScenarioList();
+}
+window.filterScenarioList = filterScenarioList;
+
 function renderScenarioList() {
   const c = document.getElementById('scenarioList');
   if (!c) return;
@@ -147,8 +155,24 @@ function renderScenarioList() {
     );
     return;
   }
+
+  let filtered = scenariosRegistry;
+  if (scenarioSearchQuery) {
+    filtered = filtered.filter(sc =>
+      (sc.key && sc.key.toLowerCase().includes(scenarioSearchQuery)) ||
+      (sc.title && sc.title.toLowerCase().includes(scenarioSearchQuery)) ||
+      (sc.description && sc.description.toLowerCase().includes(scenarioSearchQuery)) ||
+      (sc.tags && sc.tags.some(t => String(t).toLowerCase().includes(scenarioSearchQuery)))
+    );
+  }
+
+  if (!filtered.length) {
+    c.innerHTML = `<div class="p-4 text-center text-xs text-zinc-500 italic border border-dashed border-darkborder rounded-lg">Сценарии не найдены</div>`;
+    return;
+  }
+
   const activeKey = editorState && !editorState.isNew ? editorState.originalKey : null;
-  c.innerHTML = scenariosRegistry.map(sc => {
+  c.innerHTML = filtered.map(sc => {
     const dep = (sc.dependsOn || []).map(d =>
       `<span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[9px] font-mono text-zinc-400 border border-darkborder" title="Зависит от сюта">${escapeHtml(d)}</span>`
     ).join(' ');

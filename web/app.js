@@ -125,8 +125,10 @@ async function initStatus() {
     statusInfo = await res.json();
     renderHeaderEnv();
     updateOverviewRoles();
-    document.getElementById('cfgBaseUrl').value = statusInfo.baseURL || '';
-    document.getElementById('cfgAdminLogin').value = statusInfo.adminLogin || '';
+    const cfgUrl = document.getElementById('cfgBaseUrl');
+    if (cfgUrl) cfgUrl.value = statusInfo.baseURL || '';
+    const cfgLogin = document.getElementById('cfgAdminLogin');
+    if (cfgLogin) cfgLogin.value = statusInfo.adminLogin || '';
   } catch (err) {
     console.error('Failed to fetch status:', err);
     toastError('Не удалось получить статус стенда: ' + err.message);
@@ -193,11 +195,11 @@ function renderHeaderEnv() {
 }
 
 function openConfigModal() {
-  document.getElementById('configModal').classList.remove('hidden');
+  openStandsModal();
 }
 
 function closeConfigModal() {
-  document.getElementById('configModal').classList.add('hidden');
+  closeStandsModal();
 }
 
 async function saveConfig(btn) {
@@ -529,16 +531,106 @@ function initSuiteStates() {
   updateRunProgressBar();
 }
 
+let suitesFilterCategory = 'all'; // 'all' | 'flow' | 'api' | 'custom' | 'failed'
+let suitesSearchQuery = '';
+
+function setSuitesFilter(cat) {
+  suitesFilterCategory = cat || 'all';
+  const group = document.getElementById('suitesFilterGroup');
+  if (group) {
+    group.querySelectorAll('button').forEach(btn => {
+      btn.className = 'px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition';
+    });
+    const activeBtn = document.getElementById(`sf-${suitesFilterCategory}`);
+    if (activeBtn) {
+      activeBtn.className = suitesFilterCategory === 'failed'
+        ? 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-950/40 text-red-300 border border-red-800/40 transition'
+        : 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-white transition';
+    }
+  }
+  renderSuites();
+}
+window.setSuitesFilter = setSuitesFilter;
+
+function filterSuites(query) {
+  suitesSearchQuery = (query || '').toLowerCase().trim();
+  renderSuites();
+}
+window.filterSuites = filterSuites;
+
+function selectAllBatchVisible() {
+  const visible = getFilteredSuites();
+  visible.forEach(s => {
+    if (suiteStates[s.key]) suiteStates[s.key].selected = true;
+  });
+  updateBatchBar();
+  renderSuites();
+}
+window.selectAllBatchVisible = selectAllBatchVisible;
+
+function clearAllBatch() {
+  Object.keys(suiteStates).forEach(k => {
+    suiteStates[k].selected = false;
+  });
+  updateBatchBar();
+  renderSuites();
+}
+window.clearAllBatch = clearAllBatch;
+
+function getFilteredSuites() {
+  return suitesRegistry.filter(s => {
+    if (suitesFilterCategory === 'flow') {
+      if (s.category === 'api' || s.category === 'custom') return false;
+    } else if (suitesFilterCategory === 'api') {
+      if (s.category !== 'api') return false;
+    } else if (suitesFilterCategory === 'custom') {
+      if (s.category !== 'custom') return false;
+    } else if (suitesFilterCategory === 'failed') {
+      const st = suiteStates[s.key];
+      if (!st || st.lastResult !== false) return false;
+    }
+
+    if (suitesSearchQuery) {
+      const matchKey = (s.key || '').toLowerCase().includes(suitesSearchQuery);
+      const matchTitle = (s.title || '').toLowerCase().includes(suitesSearchQuery);
+      const matchDesc = (s.description || '').toLowerCase().includes(suitesSearchQuery);
+      const matchTags = (s.tags || []).some(t => String(t).toLowerCase().includes(suitesSearchQuery));
+      if (!matchKey && !matchTitle && !matchDesc && !matchTags) return false;
+    }
+
+    return true;
+  });
+}
+
 // Сценарии и API-проверки отвечают на разные вопросы, поэтому и показываются
 // раздельно: сценарий доказывает, что флоу работает целиком и обрывается на
 // первом сломанном шаге; API-проверка доказывает контракт одной ручки и идёт
 // независимо от соседних.
 function renderSuites() {
   const grid = document.getElementById('suitesGrid');
-  if (!suitesRegistry.length) return;
+  if (!grid) return;
+  if (!suitesRegistry.length) {
+    grid.innerHTML = '<div class="md:col-span-2 xl:col-span-3 p-6 text-center text-zinc-500 italic text-xs">Загрузка реестра сютов...</div>';
+    return;
+  }
 
-  const scenarios = suitesRegistry.filter(s => s.category !== 'api');
-  const apiSuites = suitesRegistry.filter(s => s.category === 'api');
+  const filtered = getFilteredSuites();
+  if (!filtered.length) {
+    grid.innerHTML = `
+      <div class="col-span-full p-8 text-center border border-dashed border-darkborder rounded-xl space-y-3">
+        <i class="fa-solid fa-filter text-2xl text-zinc-500 mb-1"></i>
+        <p class="text-sm font-semibold text-zinc-300">Нет тестов, соответствующих фильтру</p>
+        <p class="text-xs text-zinc-500">Попробуйте выбрать категорию «Все» или очистить строку поиска.</p>
+        <button onclick="setSuitesFilter('all'); const el = document.getElementById('suitesSearchInput'); if(el) el.value=''; filterSuites('');" class="px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg transition font-medium">Сбросить фильтры</button>
+      </div>
+    `;
+    updateChecklistSummary();
+    updateRunProgressBar();
+    return;
+  }
+
+  const scenarios = filtered.filter(s => s.category !== 'api');
+  const apiSuites = filtered.filter(s => s.category === 'api');
 
   let html = '';
   if (scenarios.length) {
@@ -1134,6 +1226,8 @@ function updateOverviewRecent() {
 function goToChecklists() {
   switchTab('checklists');
 }
+window.goToChecklists = goToChecklists;
+window.gotoChecklists = goToChecklists;
 
 function newScenarioFromOverview() {
   switchTab('scenarios');
@@ -1828,8 +1922,101 @@ async function executePlaygroundAction(btn) {
 // HISTORY
 // ==========================================
 
-async function loadHistory() {
+let historyFilterStatus = 'all'; // 'all' | 'PASSED' | 'FAILED'
+let historySearchQuery = '';
+
+function setHistoryFilter(status) {
+  historyFilterStatus = status || 'all';
+  const group = document.getElementById('historyFilterGroup');
+  if (group) {
+    group.querySelectorAll('button').forEach(btn => {
+      btn.className = 'px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition';
+    });
+    const active = document.getElementById(`hf-${historyFilterStatus.toLowerCase()}`);
+    if (active) {
+      active.className = historyFilterStatus === 'FAILED'
+        ? 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-950/40 text-red-300 border border-red-800/40 transition'
+        : 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-white transition';
+    }
+  }
+  renderHistoryTable();
+}
+window.setHistoryFilter = setHistoryFilter;
+
+function filterHistory(query) {
+  historySearchQuery = (query || '').toLowerCase().trim();
+  renderHistoryTable();
+}
+window.filterHistory = filterHistory;
+
+function renderHistoryTable() {
   const tbody = document.getElementById('historyTableBody');
+  if (!tbody) return;
+
+  if (!historyCache.length) {
+    tbody.innerHTML = `<tr><td colspan="8">${emptyStateHtml(
+      'fa-flask',
+      'Пока нет прогонов. Запустите тесты во вкладке «Тесты и чеклисты» или нажмите «Flow A» на Обзоре.',
+      '<button onclick="goToChecklists()" class="px-3 py-1.5 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-sm transition"><i class="fa-solid fa-list-check mr-1"></i>К чеклистам</button>'
+    )}</td></tr>`;
+    return;
+  }
+
+  let filtered = historyCache;
+  if (historyFilterStatus !== 'all') {
+    filtered = filtered.filter(r => r.status === historyFilterStatus);
+  }
+  if (historySearchQuery) {
+    filtered = filtered.filter(r =>
+      (r.id && r.id.toLowerCase().includes(historySearchQuery)) ||
+      (r.suiteKey && r.suiteKey.toLowerCase().includes(historySearchQuery)) ||
+      (r.suiteName && r.suiteName.toLowerCase().includes(historySearchQuery))
+    );
+  }
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-xs text-zinc-500 italic">Нет прогонов, соответствующих выбранному фильтру</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(r => {
+    const statusBadge = r.status === 'PASSED'
+      ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-100 border border-zinc-700"><i class="fa-solid fa-circle-check mr-1 text-emerald-400"></i>PASSED</span>'
+      : (r.status === 'FAILED'
+          ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-red-950/40 text-red-300 border border-red-800/40"><i class="fa-solid fa-circle-xmark mr-1 text-red-400"></i>FAILED</span>'
+          : '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-1 text-zinc-400"></i>RUNNING</span>');
+
+    const checksCell = (r.passedChecks !== undefined && r.totalChecks)
+      ? `<span class="${r.failedChecks ? 'text-red-400' : 'text-zinc-100'} font-semibold">${r.passedChecks}</span><span class="text-zinc-500">/${r.totalChecks}</span>`
+      : '<span class="text-zinc-500">—</span>';
+
+    const stepsCell = (r.passedSteps !== undefined && r.totalSteps)
+      ? `${r.passedSteps}<span class="text-zinc-500">/${r.totalSteps}</span>`
+      : (r.passedSteps !== undefined ? r.passedSteps : '—');
+
+    const runId = escAttr(r.id || '');
+
+    // Триггер запуска: регресс после релиза / webhook (задел на будущее)
+    const triggerBadge = r.trigger === 'regression'
+      ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700 whitespace-nowrap" title="Запущено как регресс после релиза"><i class="fa-solid fa-play text-[8px] mr-1"></i>Регресс</span>'
+      : (r.trigger === 'webhook'
+          ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700 whitespace-nowrap" title="Запущено вебхуком"><i class="fa-solid fa-link text-[8px] mr-1"></i>Webhook</span>'
+          : '');
+
+    return `<tr onclick="openRunDetails('${runId}')" class="cursor-pointer hover:bg-zinc-800/40 transition">
+      <td class="p-3 font-mono text-[11px] text-zinc-400" title="${runId}">${runId.substring(0, 8)}...</td>
+      <td class="p-3 font-semibold text-white"><span class="flex items-center gap-1.5 min-w-0"><span class="truncate">${escapeHtml(humanSuiteTitle(r.suiteKey, r.suiteName))}</span>${triggerBadge}</span></td>
+      <td class="p-3 font-mono text-[11px] text-zinc-300">${escapeHtml(r.suiteKey || '—')}</td>
+      <td class="p-3">${statusBadge}</td>
+      <td class="p-3 font-mono">${checksCell}</td>
+      <td class="p-3 font-mono">${stepsCell}</td>
+      <td class="p-3 font-mono text-zinc-400" title="Длительность прогона">${fmtDuration(r.durationMs)}</td>
+      <td class="p-3 text-zinc-400" title="${escAttr(fmtAbsTimeSec(r.startTime))}">${fmtRelTime(r.startTime)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadHistory() {
   try {
     const res = await fetch('/api/runs');
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -1838,52 +2025,7 @@ async function loadHistory() {
     historyCache = Array.isArray(runs) ? runs : [];
     updateLastRunBadges();
     updateOverviewFromCache();
-
-    if (!tbody) return;
-    if (!historyCache.length) {
-      tbody.innerHTML = `<tr><td colspan="8">${emptyStateHtml(
-        'fa-flask',
-        'Пока нет прогонов. Запустите тесты во вкладке «Тесты и чеклисты» или нажмите «Flow A» на Обзоре.',
-        '<button onclick="goToChecklists()" class="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition"><i class="fa-solid fa-list-check mr-1"></i>К чеклистам</button>'
-      )}</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = historyCache.map(r => {
-      const statusBadge = r.status === 'PASSED'
-        ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-100 border border-zinc-700"><i class="fa-solid fa-circle-check mr-1 text-emerald-400"></i>PASSED</span>'
-        : (r.status === 'FAILED'
-            ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-red-950/40 text-red-300 border border-red-800/40"><i class="fa-solid fa-circle-xmark mr-1 text-red-400"></i>FAILED</span>'
-            : '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-1 text-zinc-400"></i>RUNNING</span>');
-
-      const checksCell = (r.passedChecks !== undefined && r.totalChecks)
-        ? `<span class="${r.failedChecks ? 'text-red-400' : 'text-zinc-100'} font-semibold">${r.passedChecks}</span><span class="text-zinc-500">/${r.totalChecks}</span>`
-        : '<span class="text-zinc-500">—</span>';
-
-      const stepsCell = (r.passedSteps !== undefined && r.totalSteps)
-        ? `${r.passedSteps}<span class="text-zinc-500">/${r.totalSteps}</span>`
-        : (r.passedSteps !== undefined ? r.passedSteps : '—');
-
-      const runId = escAttr(r.id || '');
-
-      // Триггер запуска: регресс после релиза / webhook (задел на будущее)
-      const triggerBadge = r.trigger === 'regression'
-        ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700 whitespace-nowrap" title="Запущено как регресс после релиза"><i class="fa-solid fa-play text-[8px] mr-1"></i>Регресс</span>'
-        : (r.trigger === 'webhook'
-            ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700 whitespace-nowrap" title="Запущено вебхуком"><i class="fa-solid fa-link text-[8px] mr-1"></i>Webhook</span>'
-            : '');
-
-      return `<tr onclick="openRunDetails('${runId}')" class="cursor-pointer hover:bg-zinc-800/40 transition">
-        <td class="p-3 font-mono text-[11px] text-zinc-400" title="${runId}">${runId.substring(0, 8)}...</td>
-        <td class="p-3 font-semibold text-white"><span class="flex items-center gap-1.5 min-w-0"><span class="truncate">${escapeHtml(humanSuiteTitle(r.suiteKey, r.suiteName))}</span>${triggerBadge}</span></td>
-        <td class="p-3 font-mono text-[11px] text-zinc-300">${escapeHtml(r.suiteKey || '—')}</td>
-        <td class="p-3">${statusBadge}</td>
-        <td class="p-3 font-mono">${checksCell}</td>
-        <td class="p-3 font-mono">${stepsCell}</td>
-        <td class="p-3 font-mono text-slate-400" title="Длительность прогона">${fmtDuration(r.durationMs)}</td>
-        <td class="p-3 text-slate-400" title="${escAttr(fmtAbsTimeSec(r.startTime))}">${fmtRelTime(r.startTime)}</td>
-      </tr>`;
-    }).join('');
+    renderHistoryTable();
   } catch (err) {
     console.error('Failed to load history:', err);
     if (tbody) {

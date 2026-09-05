@@ -33,30 +33,19 @@ async function loadAnalysis() {
     }
   };
 
-  const [cov, met, diag, mob, glCfg, appsData] = await Promise.all([
+  const [cov, met, diag] = await Promise.all([
     fetchSafe('/api/analysis/coverage'),
     fetchSafe('/api/analysis/metrics'),
     fetchSafe('/api/analysis/diagnostics'),
-    fetchSafe('/api/mobilecontract/report'),
-    fetchSafe('/api/mobilecontract/gitlab/config'),
-    fetchSafe('/api/mobilecontract/apps'),
   ]);
 
   if (cov) currentCoverageReport = cov;
   if (met) currentQualityMetrics = met;
   if (diag) currentDiagnosis = diag;
-  if (mob) currentMobileReport = mob;
-  if (appsData && appsData.apps) mobileAppsList = appsData.apps;
-  if (glCfg) {
-    if (glCfg.repoUrl) gitlabRepoUrl = glCfg.repoUrl;
-    if (glCfg.token) gitlabToken = glCfg.token;
-    if (glCfg.lastBranch) gitlabDefaultBranch = glCfg.lastBranch;
-  }
 
   renderCoverageView();
   renderDiagnosticsView();
   renderMetricsView();
-  renderMobileContractView();
 }
 
 async function loadMobileContract() {
@@ -98,10 +87,10 @@ function renderCoverageView() {
       <div class="p-8 text-center text-slate-400 border border-dashed border-darkborder rounded-xl">
         <i class="fa-solid fa-book-open text-3xl mb-3 text-slate-500"></i>
         <p class="text-sm font-semibold text-slate-300">Спецификация API не импортирована</p>
-        <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-          Для расчёта покрытия эндпоинтов и автогенерации тестов импортируйте OpenAPI/Swagger спеку во вкладке «Инструменты».
+        <p class="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
+          Для расчёта покрытия эндпоинтов и автогенерации тестов импортируйте OpenAPI/Swagger спеку во вкладке «Управление &amp; Инструменты → Спецификация API».
         </p>
-        <button onclick="switchTab('tools')" class="mt-4 px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg transition">
+        <button onclick="switchTab('spec')" class="mt-4 px-4 py-2 text-xs font-semibold bg-white hover:bg-zinc-200 text-zinc-950 rounded-lg shadow-sm transition">
           <i class="fa-solid fa-arrow-right mr-1.5"></i>Перейти к импорту спеки
         </button>
       </div>
@@ -819,12 +808,8 @@ async function runGitLabMobileContractScan(btn) {
 let mobileFilterPlatform = 'all';
 
 function renderMobileContractView() {
-  const containers = [
-    document.getElementById('mobileContractContainer'),
-    document.getElementById('mobileContractMainContainer'),
-  ].filter(Boolean);
-
-  if (containers.length === 0) return;
+  const container = document.getElementById('mobileContractMainContainer');
+  if (!container) return;
 
   const rep = currentMobileReport;
   const allResults = (rep && rep.results) || [];
@@ -1151,9 +1136,7 @@ function renderMobileContractView() {
     </div>
   `;
 
-  containers.forEach(box => {
-    box.innerHTML = html;
-  });
+  container.innerHTML = html;
 }
 
 async function runMobileContractScan(btn) {
