@@ -46,8 +46,10 @@ function renderSpecEmpty() {
   if (!box) return;
   hideSpecResult();
   hideSpecError();
+  const countEl = document.getElementById('subtabCountSpec');
+  if (countEl) countEl.textContent = '0';
   box.innerHTML =
-    '<span class="w-2 h-2 rounded-full bg-slate-600 shrink-0"></span>' +
+    '<span class="w-2 h-2 rounded-full bg-zinc-600 shrink-0"></span>' +
     '<span>Спецификация не загружена</span>';
 }
 
@@ -62,6 +64,8 @@ function renderSpecStatus(meta) {
   const title = meta.title || meta.key || 'Спецификация';
   const version = meta.version || '—';
   const endpoints = Array.isArray(meta.endpoints) ? meta.endpoints.length : 0;
+  const countEl = document.getElementById('subtabCountSpec');
+  if (countEl) countEl.textContent = String(endpoints);
 
   box.innerHTML =
     '<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>' +

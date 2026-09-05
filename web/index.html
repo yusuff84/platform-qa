@@ -113,6 +113,7 @@
       <button onclick="switchTab('checklists')" id="tab-checklists" class="tab-btn px-3.5 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-zinc-400 hover:text-zinc-200 shrink-0">
         <i class="fa-solid fa-list-check text-zinc-400"></i>
         <span>Тесты &amp; Чеклисты</span>
+        <span id="tabCountChecklists" class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300">0</span>
       </button>
       <button onclick="switchTab('scenarios')" id="tab-scenarios" class="tab-btn px-3.5 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-zinc-400 hover:text-zinc-200 shrink-0">
         <i class="fa-solid fa-code text-zinc-400"></i>
@@ -137,6 +138,34 @@
     <!-- TAB 1: OVERVIEW                                     -->
     <!-- ================================================== -->
     <section id="view-overview" class="tab-view space-y-6">
+
+      <!-- System Health & Readiness Banner -->
+      <div id="ovHealthBanner" class="bg-darkcard border border-darkborder rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-darkborder flex items-center justify-center text-zinc-100 shrink-0">
+            <i class="fa-solid fa-shield-halved text-base"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 id="ovHealthTitle" class="text-sm font-semibold text-white">Платформа готова к тестированию</h3>
+              <span id="ovReadyBadge" class="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">ONLINE</span>
+            </div>
+            <p id="ovHealthSubtitle" class="text-xs text-zinc-400 mt-0.5 truncate">
+              Стенд активен · Все роли авторизованы · Спецификация API загружена
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0 flex-wrap">
+          <button onclick="triggerRun('flow_a', this)" title="Быстрый прогон сквозного заказа от регистрации до вручения"
+            class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder rounded-lg transition font-medium flex items-center gap-1.5">
+            <i class="fa-solid fa-play text-xs"></i><span>Быстрый смоук (Flow A)</span>
+          </button>
+          <button onclick="openRegressionModal()" title="Полный регресс всех тестов со сводкой"
+            class="px-3.5 py-1.5 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <i class="fa-solid fa-play text-xs"></i><span>Полный регресс</span>
+          </button>
+        </div>
+      </div>
 
       <!-- Status cards row -->
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -346,6 +375,24 @@
         <div class="md:col-span-2 xl:col-span-3 p-6 text-center text-slate-500 italic text-xs">Загрузка реестра сютов...</div>
       </div>
 
+      <!-- Sticky Floating Batch Action Bar -->
+      <div id="stickyBatchBar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-zinc-900/95 border border-zinc-700 shadow-2xl backdrop-blur rounded-2xl px-5 py-3 flex items-center gap-4 text-xs pop-in">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="stickyBatchText" class="font-semibold text-white">Выбрано: 0 сютов</span>
+        </div>
+        <div class="h-4 w-px bg-zinc-700"></div>
+        <button onclick="runSelectedSuites(this)" class="px-4 py-1.5 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+          <i class="fa-solid fa-play text-xs"></i><span>Запустить батч</span>
+        </button>
+        <button onclick="openRegressionModal()" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg transition font-medium">
+          Регресс
+        </button>
+        <button onclick="clearAllBatch()" class="text-zinc-400 hover:text-white transition p-1" title="Снять выбор">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
     </section>
 
     <!-- ================================================== -->
@@ -388,6 +435,17 @@
               <span>Редактор кастомных сценариев</span>
             </h2>
             <span id="scModeBadge" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded border shrink-0 bg-zinc-800 text-zinc-300 border-zinc-700">НОВЫЙ</span>
+          </div>
+
+          <!-- Template Presets Bar -->
+          <div class="flex items-center justify-between gap-2 p-2 bg-zinc-900 border border-darkborder rounded-lg text-xs flex-wrap">
+            <span class="text-zinc-400 font-medium flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-zinc-500"></i>Быстрый шаблон:</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button onclick="insertPresetScenario('order_flow')" type="button" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded transition font-medium text-[11px]">Создание заказа</button>
+              <button onclick="insertPresetScenario('client_reg')" type="button" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded transition font-medium text-[11px]">Регистрация клиента</button>
+              <button onclick="insertPresetScenario('menu_smoke')" type="button" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded transition font-medium text-[11px]">Меню ресторана</button>
+              <button onclick="insertPresetScenario('rbac_gate')" type="button" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded transition font-medium text-[11px]">RBAC (401 без токена)</button>
+            </div>
           </div>
 
           <div id="scenariosErrorBox" class="hidden px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono whitespace-pre-wrap break-all"></div>
@@ -547,23 +605,26 @@
 
       <!-- Tools Sub-Navigation Bar -->
       <div id="toolsSubnav" class="flex items-center gap-1.5 p-1.5 rounded-xl border border-darkborder text-xs overflow-x-auto shrink-0 shadow-sm">
-        <button onclick="switchToolsSubtab('history')" id="tools-subtab-history" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0 active">
+        <button onclick="switchToolsSubtab('history')" id="tools-subtab-history" class="tools-subtab px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0 active">
           <i class="fa-solid fa-clock-rotate-left text-xs"></i>
           <span>История прогонов</span>
+          <span id="subtabCountHistory" class="px-1.5 py-0.5 rounded font-mono text-[10px] bg-zinc-800 text-zinc-300">0</span>
         </button>
-        <button onclick="switchToolsSubtab('vault')" id="tools-subtab-vault" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
+        <button onclick="switchToolsSubtab('vault')" id="tools-subtab-vault" class="tools-subtab px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
           <i class="fa-solid fa-key text-xs"></i>
           <span>Токены и доступ (Vault)</span>
+          <span id="subtabCountVault" class="px-1.5 py-0.5 rounded font-mono text-[10px] bg-zinc-800 text-zinc-300">4/4</span>
         </button>
-        <button onclick="switchToolsSubtab('spec')" id="tools-subtab-spec" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
+        <button onclick="switchToolsSubtab('spec')" id="tools-subtab-spec" class="tools-subtab px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
           <i class="fa-solid fa-book-open text-xs"></i>
           <span>Спецификация API</span>
+          <span id="subtabCountSpec" class="px-1.5 py-0.5 rounded font-mono text-[10px] bg-zinc-800 text-zinc-300">0</span>
         </button>
-        <button onclick="switchToolsSubtab('statemachine')" id="tools-subtab-statemachine" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
+        <button onclick="switchToolsSubtab('statemachine')" id="tools-subtab-statemachine" class="tools-subtab px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
           <i class="fa-solid fa-diagram-project text-xs"></i>
           <span>State Machine</span>
         </button>
-        <button onclick="switchToolsSubtab('playground')" id="tools-subtab-playground" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
+        <button onclick="switchToolsSubtab('playground')" id="tools-subtab-playground" class="tools-subtab px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
           <i class="fa-solid fa-paper-plane text-xs"></i>
           <span>API Playground</span>
         </button>
@@ -612,10 +673,11 @@
                 <th class="p-3">Шаги</th>
                 <th class="p-3">Длительность</th>
                 <th class="p-3">Когда</th>
+                <th class="p-3 text-right">Действия</th>
               </tr>
             </thead>
             <tbody id="historyTableBody" class="divide-y divide-darkborder text-zinc-300">
-              <tr><td colspan="8" class="p-4 text-center text-zinc-500">История пуста. Кликните по строке для отчёта по прогону.</td></tr>
+              <tr><td colspan="9" class="p-4 text-center text-zinc-500">История пуста. Кликните по строке для отчёта по прогону.</td></tr>
             </tbody>
           </table>
         </div>

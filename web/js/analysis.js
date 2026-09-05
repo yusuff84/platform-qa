@@ -827,6 +827,44 @@ async function runGitLabMobileContractScan(btn) {
 
 let mobileFilterPlatform = 'all';
 
+function copyTextToClipboard(text) {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Скопировано в буфер обмена', 'success');
+  }).catch(() => {
+    showToast('Не удалось скопировать', 'error');
+  });
+}
+window.copyTextToClipboard = copyTextToClipboard;
+
+function copyMobileReportMarkdown() {
+  if (!currentMobileReport || !currentMobileReport.results) {
+    showToast('Сначала выполните проверку мобильных контрактов', 'error');
+    return;
+  }
+  const issues = [];
+  currentMobileReport.results.forEach(r => {
+    (r.issues || []).forEach(iss => {
+      issues.push(`| ${r.appName || r.model.name} | ${r.model.name} | \`${iss.fieldName || '-'}\` | ${iss.severity} | ${iss.description} | ${iss.recommendation} |`);
+    });
+  });
+  if (!issues.length) {
+    showToast('Дефектов контракта не обнаружено — все модели совместимы!', 'success');
+    return;
+  }
+  const md = `# Отчет о контрактных рисках мобильных DTO (${new Date().toLocaleDateString()})\n\n` +
+    `Всего моделей: ${currentMobileReport.totalModels}, Крашей: ${currentMobileReport.crashes}, Предупреждений: ${currentMobileReport.warnings}\n\n` +
+    `| Приложение | Модель | Поле | Важность | Описание ошибки | Рекомендация по фиксу |\n` +
+    `|---|---|---|---|---|---|\n` +
+    issues.join('\n') + `\n`;
+  navigator.clipboard.writeText(md).then(() => {
+    showToast(`Markdown-отчёт (${issues.length} ${pluralRu(issues.length, ['дефект', 'дефекта', 'дефектов'])}) скопирован!`, 'success');
+  }).catch(() => {
+    showToast('Ошибка копирования', 'error');
+  });
+}
+window.copyMobileReportMarkdown = copyMobileReportMarkdown;
+
 function renderMobileContractView() {
   const container = document.getElementById('mobileContractMainContainer');
   if (!container) return;
@@ -943,11 +981,17 @@ function renderMobileContractView() {
 
       const issuesHtml = (m.issues || []).map(iss => {
         const issClass = iss.severity === 'CRITICAL_CRASH' ? 'mobile-issue-crash' : (iss.severity === 'WARNING' ? 'mobile-issue-warn' : 'mobile-issue-crash');
+        const fixText = String(iss.recommendation || '');
         return `
           <div class="${issClass} text-xs space-y-1.5">
             <div class="flex items-center justify-between gap-2">
               <span class="issue-field font-mono font-bold">${escapeHtml(iss.fieldName || '(поле)')} (${escapeHtml(iss.expectedType || 'any')})</span>
-              <span class="issue-badge">${escapeHtml(iss.severity)}</span>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="issue-badge">${escapeHtml(iss.severity)}</span>
+                <button onclick="copyTextToClipboard('${escAttr(fixText)}')" title="Скопировать рекомендацию по исправлению" class="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder transition flex items-center gap-1">
+                  <i class="fa-regular fa-copy text-[9px]"></i><span>Копировать фикс</span>
+                </button>
+              </div>
             </div>
             <p class="issue-desc font-medium leading-relaxed">${escapeHtml(iss.description)}</p>
             <div class="issue-rec font-medium"><i class="fa-regular fa-lightbulb mr-1"></i>Рекомендация: ${escapeHtml(iss.recommendation)}</div>
@@ -995,6 +1039,9 @@ function renderMobileContractView() {
           </p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="copyMobileReportMarkdown()" title="Скопировать отчёт обо всех выявленных рисках в Markdown для задач Jira / GitLab" class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder rounded-lg font-medium flex items-center gap-1.5 transition shadow-sm">
+            <i class="fa-solid fa-copy text-zinc-400"></i><span>Скопировать отчёт</span>
+          </button>
           <button onclick="openAddMobileAppModal()" class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-lg font-semibold flex items-center gap-1.5 transition">
             <i class="fa-solid fa-plus text-zinc-400"></i><span>Добавить мобилку</span>
           </button>

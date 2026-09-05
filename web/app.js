@@ -1031,6 +1031,17 @@ function updateBatchBar() {
   if (counter) counter.textContent = `Выбрано: ${count}`;
   const btn = document.getElementById('runSelectedBtn');
   if (btn) btn.disabled = count === 0;
+
+  const sticky = document.getElementById('stickyBatchBar');
+  const stickyText = document.getElementById('stickyBatchText');
+  if (sticky && stickyText) {
+    if (count > 0) {
+      sticky.classList.remove('hidden');
+      stickyText.textContent = `Выбрано сютов: ${count}`;
+    } else {
+      sticky.classList.add('hidden');
+    }
+  }
 }
 
 function markSuitesRunning(keys) {
@@ -1153,7 +1164,30 @@ function updateOverviewRoles() {
   const cnt = document.getElementById('ovRolesCount');
   if (cnt) {
     cnt.textContent = withToken + ' из 4 ' + pluralRu(withToken, ['роли', 'ролей', 'ролей']);
-    cnt.className = 'text-[11px] font-semibold ' + (withToken === 4 ? 'text-green-400' : (withToken ? 'text-amber-400' : 'text-slate-400'));
+    cnt.className = 'text-[11px] font-semibold ' + (withToken === 4 ? 'text-zinc-100' : (withToken ? 'text-amber-400' : 'text-zinc-400'));
+  }
+
+  const subtabVault = document.getElementById('subtabCountVault');
+  if (subtabVault) subtabVault.textContent = `${withToken}/4`;
+
+  // System Health & Readiness Banner
+  const titleEl = document.getElementById('ovHealthTitle');
+  const badgeEl = document.getElementById('ovReadyBadge');
+  const subEl = document.getElementById('ovHealthSubtitle');
+  if (titleEl && badgeEl && subEl) {
+    const sn = statusInfo.standName || statusInfo.baseURL || 'активен';
+    if (withToken === 4) {
+      titleEl.textContent = 'Платформа полностью готова к тестированию';
+      badgeEl.textContent = 'ГОТОВ К ТЕСТАМ';
+      badgeEl.className = 'text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-100 border border-zinc-600';
+      subEl.textContent = `Стенд: ${sn} · Все 4 роли авторизованы · Спецификация API подключена`;
+    } else {
+      const missing = 4 - withToken;
+      titleEl.textContent = `Требуется авторизация (${missing} ${pluralRu(missing, ['роль не авторизована', 'роли не авторизованы', 'ролей не авторизовано'])})`;
+      badgeEl.textContent = 'ТРЕБУЕТСЯ ВХОД';
+      badgeEl.className = 'text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-amber-300 border border-amber-800/40';
+      subEl.textContent = 'Перейдите в раздел «Управление → Токены» для быстрого создания профилей (Preset 2x2x2)';
+    }
   }
 }
 
@@ -1164,6 +1198,9 @@ function updateOverviewSuites() {
   if (el) el.textContent = String(total);
   const br = document.getElementById('ovSuitesBreakdown');
   if (br) br.textContent = total ? `встроенных: ${total - custom} · своих: ${custom}` : 'реестр недоступен';
+
+  const tabCount = document.getElementById('tabCountChecklists');
+  if (tabCount) tabCount.textContent = String(total);
 }
 
 function updateOverviewPassRate() {
@@ -1173,14 +1210,14 @@ function updateOverviewPassRate() {
   const last = (historyCache || []).filter(r => r && r.status && r.status !== 'RUNNING').slice(0, 20);
   if (!last.length) {
     pctEl.textContent = '—';
-    pctEl.className = 'text-3xl font-black text-slate-500';
+    pctEl.className = 'text-3xl font-bold text-zinc-500';
     if (subEl) subEl.textContent = 'нет завершённых прогонов';
     return;
   }
   const passed = last.filter(r => r.status === 'PASSED').length;
   const pct = Math.round((passed / last.length) * 100);
   pctEl.textContent = pct + '%';
-  pctEl.className = 'text-3xl font-black ' + (pct >= 50 ? 'text-green-400' : 'text-red-400');
+  pctEl.className = 'text-3xl font-bold ' + (pct >= 50 ? 'text-zinc-100' : 'text-red-400');
   if (subEl) subEl.textContent = `${passed} из ${last.length} последних прогонов`;
 }
 
@@ -1207,16 +1244,31 @@ function updateOverviewRecent() {
   }
   if (empty) empty.classList.add('hidden');
   box.innerHTML = last.map(r => `
-    <button onclick="openRunDetails('${escAttr(r.id || '')}')" class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/60 transition text-left border-b border-darkborder last:border-b-0 group">
-      <i class="fa-solid ${runStatusIcon(r.status)} shrink-0"></i>
-      <span class="flex-1 min-w-0">
-        <span class="block text-xs font-semibold text-white truncate">${escapeHtml(humanSuiteTitle(r.suiteKey, r.suiteName))}</span>
-        <span class="block text-[10px] font-mono text-slate-500">${escapeHtml(r.suiteKey || '')}</span>
-      </span>
-      <span class="text-[10px] text-slate-400 shrink-0 hidden sm:block" title="${escAttr(fmtAbsTimeSec(r.startTime))}">${fmtRelTime(r.startTime)}</span>
-      <span class="text-[10px] font-mono text-slate-500 shrink-0 w-20 text-right">${fmtDuration(r.durationMs)}</span>
-      <i class="fa-solid fa-chevron-right text-[9px] text-slate-600 group-hover:text-slate-400 shrink-0"></i>
-    </button>
+    <div class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-800/40 transition border-b border-darkborder last:border-b-0 text-xs">
+      <div class="flex items-center gap-3 min-w-0 flex-1 cursor-pointer" onclick="openRunDetails('${escAttr(r.id || '')}')">
+        <i class="fa-solid ${runStatusIcon(r.status)} shrink-0"></i>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-white truncate">${escapeHtml(humanSuiteTitle(r.suiteKey, r.suiteName))}</span>
+            <span class="text-[10px] font-mono text-zinc-500">${escapeHtml(r.suiteKey || '')}</span>
+          </div>
+          <div class="text-[11px] text-zinc-400 font-mono mt-0.5">
+            ${fmtRelTime(r.startTime)} · длительность: ${fmtDuration(r.durationMs)}
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="triggerRun('${escAttr(r.suiteKey)}', this)" title="Запустить этот сьют снова" class="px-2.5 py-1 text-[11px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition flex items-center gap-1">
+          <i class="fa-solid fa-play text-[9px]"></i><span>Повторить</span>
+        </button>
+        <button onclick="openRunDetails('${escAttr(r.id || '')}')" title="Открыть отчёт" class="px-2.5 py-1 text-[11px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-darkborder rounded-lg transition">
+          Отчёт
+        </button>
+        <button onclick="openLogsFiltered('${escAttr(r.id || '')}')" title="Все логи этого прогона" class="px-2.5 py-1 text-[11px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-darkborder rounded-lg transition">
+          <i class="fa-solid fa-scroll"></i>
+        </button>
+      </div>
+    </div>
   `).join('');
 }
 
@@ -1578,10 +1630,10 @@ function renderRoleProfiles(role, profiles, activeId, emptyHint) {
 
   container.innerHTML = profiles.map(p => {
     const isActive = (p.id === activeId || p.isActive);
-    const borderClass = isActive ? 'border-green-500/60 bg-green-950/10' : 'border-darkborder bg-slate-900/80';
+    const borderClass = isActive ? 'border-zinc-500 bg-zinc-800/80 ring-1 ring-zinc-500/30' : 'border-darkborder bg-zinc-900/60';
     const badgeHtml = isActive
-      ? `<span class="px-2 py-0.5 rounded text-[9px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">ACTIVE</span>`
-      : `<button onclick="activateToken('${role}', '${escAttr(p.id)}', this)" class="px-2 py-0.5 rounded text-[9px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-darkborder transition" title="Сделать токен активным для тестов">Сделать активным</button>`;
+      ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-medium bg-zinc-800 text-zinc-100 border border-zinc-600">ACTIVE</span>`
+      : `<button onclick="activateToken('${role}', '${escAttr(p.id)}', this)" class="px-2 py-0.5 rounded text-[9px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-darkborder transition" title="Сделать токен активным для тестов">Сделать активным</button>`;
 
     const tokenSnippet = p.token ? `${p.token.substring(0, 24)}...${p.token.substring(p.token.length - 12)}` : 'No Token';
 
@@ -1589,20 +1641,20 @@ function renderRoleProfiles(role, profiles, activeId, emptyHint) {
       <div class="p-3 rounded-lg border ${borderClass} space-y-2 text-xs transition">
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center space-x-2 min-w-0">
-            <span class="font-bold text-white truncate">${escapeHtml(p.name)}</span>
-            <span class="text-[11px] font-mono text-slate-400 truncate">${escapeHtml(p.identifier || '')}</span>
+            <span class="font-semibold text-white truncate">${escapeHtml(p.name)}</span>
+            <span class="text-[11px] font-mono text-zinc-400 truncate">${escapeHtml(p.identifier || '')}</span>
           </div>
           <div class="flex items-center space-x-2 shrink-0">
             ${badgeHtml}
-            <button onclick="copyProfileToken('${escAttr(p.id)}')" title="Копировать JWT" class="text-slate-400 hover:text-white transition px-1">
-              <i class="fa-regular fa-copy"></i>
+            <button onclick="copyProfileToken('${escAttr(p.id)}')" title="Копировать полный Bearer JWT токен" class="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder transition flex items-center gap-1">
+              <i class="fa-regular fa-copy"></i><span>JWT</span>
             </button>
-            <button onclick="deleteToken('${role}', '${escAttr(p.id)}', this)" title="Удалить токен" class="text-red-400 hover:text-red-300 transition px-1">
-              <i class="fa-solid fa-trash"></i>
+            <button onclick="deleteToken('${role}', '${escAttr(p.id)}', this)" title="Удалить токен" class="text-zinc-500 hover:text-red-400 transition px-1">
+              <i class="fa-solid fa-trash text-xs"></i>
             </button>
           </div>
         </div>
-        <div class="font-mono text-[10px] text-slate-400 bg-slate-950 p-1.5 rounded border border-darkborder/50 truncate select-text">
+        <div class="font-mono text-[10px] text-zinc-400 bg-zinc-950 p-1.5 rounded border border-darkborder truncate select-text">
           ${tokenSnippet}
         </div>
       </div>
@@ -1954,7 +2006,7 @@ function renderHistoryTable() {
   if (!tbody) return;
 
   if (!historyCache.length) {
-    tbody.innerHTML = `<tr><td colspan="8">${emptyStateHtml(
+    tbody.innerHTML = `<tr><td colspan="9">${emptyStateHtml(
       'fa-flask',
       'Пока нет прогонов. Запустите тесты во вкладке «Тесты и чеклисты» или нажмите «Flow A» на Обзоре.',
       '<button onclick="goToChecklists()" class="px-3 py-1.5 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-sm transition"><i class="fa-solid fa-list-check mr-1"></i>К чеклистам</button>'
@@ -1975,7 +2027,7 @@ function renderHistoryTable() {
   }
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-xs text-zinc-500 italic">Нет прогонов, соответствующих выбранному фильтру</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-xs text-zinc-500 italic">Нет прогонов, соответствующих выбранному фильтру</td></tr>`;
     return;
   }
 
@@ -2012,6 +2064,10 @@ function renderHistoryTable() {
       <td class="p-3 font-mono">${stepsCell}</td>
       <td class="p-3 font-mono text-zinc-400" title="Длительность прогона">${fmtDuration(r.durationMs)}</td>
       <td class="p-3 text-zinc-400" title="${escAttr(fmtAbsTimeSec(r.startTime))}">${fmtRelTime(r.startTime)}</td>
+      <td class="p-3 text-right whitespace-nowrap">
+        <button onclick="event.stopPropagation(); triggerRun('${escAttr(r.suiteKey)}', this)" class="px-2 py-1 text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded mr-1" title="Запустить сьют снова"><i class="fa-solid fa-play text-[8px] mr-1"></i>Повторить</button>
+        <button onclick="event.stopPropagation(); openRunDetails('${runId}')" class="px-2 py-1 text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-darkborder rounded" title="Детальный отчёт">Отчёт</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -2025,6 +2081,10 @@ async function loadHistory() {
     historyCache = Array.isArray(runs) ? runs : [];
     updateLastRunBadges();
     updateOverviewFromCache();
+
+    const subtabHist = document.getElementById('subtabCountHistory');
+    if (subtabHist) subtabHist.textContent = String(historyCache.length);
+
     renderHistoryTable();
   } catch (err) {
     console.error('Failed to load history:', err);
@@ -2180,7 +2240,11 @@ function tlDotIcon(status) {
 
 function renderRunDetails(run) {
   const title = document.getElementById('runDetailsTitle');
-  title.innerHTML = `<i class="fa-solid fa-chart-line text-zinc-400"></i><span>Отчёт: ${escapeHtml(humanSuiteTitle(run.suiteKey, run.suiteName || run.id))}</span>`;
+  title.innerHTML = `
+    <i class="fa-solid fa-chart-line text-zinc-400"></i>
+    <span class="truncate">Отчёт: ${escapeHtml(humanSuiteTitle(run.suiteKey, run.suiteName || run.id))}</span>
+    ${run.suiteKey ? `<button onclick="triggerRun('${escAttr(run.suiteKey)}', this); closeRunDetails();" class="ml-auto mr-2 px-2.5 py-1 text-[11px] font-semibold bg-white hover:bg-zinc-200 text-zinc-950 rounded-lg shadow-sm transition flex items-center gap-1.5 shrink-0"><i class="fa-solid fa-play text-[9px]"></i><span>Запустить снова</span></button>` : ''}
+  `;
 
   const exportJunitBtn = document.getElementById('runExportJunitBtn');
   const exportAllureBtn = document.getElementById('runExportAllureBtn');
@@ -2214,9 +2278,9 @@ function renderRunDetails(run) {
   const errorBlock = run.error
     ? (() => {
         const hint = translateErrorHint(run.error);
-        return `<div class="bg-red-500/10 border border-red-500/40 rounded-lg p-3 space-y-1">
+        return `<div class="bg-red-950/40 border border-red-800/40 rounded-lg p-3 space-y-1">
           <div class="text-red-300 font-mono break-all text-[11px]"><i class="fa-solid fa-bug mr-1"></i><b>Ошибка:</b> ${escapeHtml(run.error)}</div>
-          ${hint ? `<div class="text-amber-200/90 text-[11px]"><i class="fa-solid fa-lightbulb mr-1 text-amber-400"></i>${hint}</div>` : ''}
+          ${hint ? `<div class="text-amber-200/90 text-[11px] pt-1"><i class="fa-regular fa-lightbulb mr-1 text-amber-400"></i>${hint}</div>` : ''}
         </div>`;
       })()
     : '';
@@ -2237,15 +2301,15 @@ function renderRunDetails(run) {
     const status = res ? res.status : 'UNKNOWN';
     const titleText = getCheckTitle(run.suiteKey, checkId) || (res && res.title) || checkId;
     const dur = res && res.durationMs !== undefined && status !== 'UNKNOWN'
-      ? `<span class="ml-auto text-[10px] font-mono text-slate-500 shrink-0">${fmtDuration(res.durationMs)}</span>` : '';
+      ? `<span class="ml-auto text-[10px] font-mono text-zinc-500 shrink-0">${fmtDuration(res.durationMs)}</span>` : '';
 
     let body = '';
     if (status === 'FAILED') {
       const msg = (res && res.message) || '';
       const hint = translateErrorHint(msg);
-      body = `<div class="mt-1.5 rounded-lg bg-red-500/10 border border-red-500/40 p-2.5 space-y-1">
+      body = `<div class="mt-1.5 rounded-lg bg-red-950/30 border border-red-800/40 p-2.5 space-y-1">
         <div class="text-red-300 break-all"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${escapeHtml(typeof tidyEventMessage === 'function' ? tidyEventMessage(msg) : msg)}</div>
-        ${hint ? `<div class="text-amber-200/90 text-[11px] leading-relaxed pt-0.5 border-t border-red-500/20 mt-1 pt-1.5"><i class="fa-solid fa-lightbulb mr-1 text-amber-400"></i>${hint}</div>` : ''}
+        ${hint ? `<div class="text-amber-200/90 text-[11px] leading-relaxed pt-1 border-t border-red-800/30 mt-1"><i class="fa-regular fa-lightbulb mr-1 text-amber-400"></i>${hint}</div>` : ''}
       </div>`;
     } else if (status === 'PASSED') {
       const hd = httpDetailsForCheck(run, checkId);
@@ -2253,10 +2317,10 @@ function renderRunDetails(run) {
         ? `${hd.method} ${hd.url || ''} → ${hd.statusCode}`
         : (res && res.message ? (typeof tidyEventMessage === 'function' ? tidyEventMessage(res.message) : res.message) : '');
       body = tech
-        ? `<div class="mt-0.5 font-mono text-[10px] text-slate-500 break-all">${escapeHtml(tech)}</div>` : '';
+        ? `<div class="mt-0.5 font-mono text-[10px] text-zinc-400 break-all">${escapeHtml(tech)}</div>` : '';
     } else if (status === 'SKIPPED') {
       body = (res && res.message)
-        ? `<div class="mt-0.5 text-[10px] text-slate-500 italic break-all">${escapeHtml(res.message)}</div>` : '';
+        ? `<div class="mt-0.5 text-[10px] text-zinc-500 italic break-all">${escapeHtml(res.message)}</div>` : '';
     } else if (status === 'RUNNING') {
       body = '<div class="mt-0.5 text-[10px] text-zinc-400 italic">шаг выполняется…</div>';
     }
@@ -2266,7 +2330,7 @@ function renderRunDetails(run) {
       <div class="flex items-start gap-2 min-w-0">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            <span class="text-xs font-semibold ${status === 'FAILED' ? 'text-red-300' : (status === 'PASSED' ? 'text-slate-200' : 'text-slate-400')}">${escapeHtml(titleText)}</span>
+            <span class="text-xs font-semibold ${status === 'FAILED' ? 'text-red-300' : 'text-zinc-200'}">${escapeHtml(titleText)}</span>
             ${resultStatusBadge(status)}
           </div>
           ${body}

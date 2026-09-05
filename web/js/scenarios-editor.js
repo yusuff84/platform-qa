@@ -188,6 +188,170 @@ function renderScenarioList() {
   }).join('');
 }
 
+const PRESET_SCENARIOS = {
+  order_flow: {
+    key: 'custom_order_flow',
+    title: 'Полный флоу заказа: клиент -> ресторан -> курьер',
+    description: 'Сквозная проверка создания, подтверждения и отслеживания заказа',
+    tags: ['flow', 'orders', 'client'],
+    vars: { phone_suffix: '{{uuid}}' },
+    dependsOn: [],
+    steps: [
+      {
+        id: 'reg_client',
+        title: 'Регистрация тестового клиента',
+        type: 'http',
+        role: 'client',
+        method: 'POST',
+        path: '/api/clients/register',
+        bodyRaw: '{\n  "phoneNumber": "+7999{{phone_suffix}}",\n  "firstName": "Клиент",\n  "lastName": "Тестовый",\n  "cityKey": "Москва"\n}',
+        headers: [],
+        extract: [{ name: 'clientId', path: '$.data.id' }],
+        expectStatus: '200',
+        asserts: [{ path: '$.data.id', op: 'exists' }]
+      },
+      {
+        id: 'create_order',
+        title: 'Оформление заказа в ресторане',
+        type: 'http',
+        role: 'client',
+        method: 'POST',
+        path: '/api/clients/create-order',
+        bodyRaw: '{\n  "deliveryAddress": "Москва, Тверская 12",\n  "paymentMethod": "card",\n  "items": [{ "dishId": "dish_burger_1", "count": 2 }]\n}',
+        headers: [],
+        extract: [{ name: 'orderId', path: '$.data.id' }],
+        expectStatus: '200',
+        asserts: [{ path: '$.data.id', op: 'notEmpty' }]
+      },
+      {
+        id: 'check_order',
+        title: 'Проверка ID созданного заказа',
+        type: 'assert',
+        left: '{{orderId}}',
+        op: 'notEmpty',
+        value: ''
+      }
+    ]
+  },
+  client_reg: {
+    key: 'custom_client_reg',
+    title: 'Регистрация и получение профиля клиента',
+    description: 'Проверка ручки регистрации и эндпоинта данных профиля клиента',
+    tags: ['client', 'auth', 'smoke'],
+    vars: { phone_suffix: '{{uuid}}' },
+    dependsOn: [],
+    steps: [
+      {
+        id: 'register',
+        title: 'Регистрация клиента по номеру',
+        type: 'http',
+        role: 'client',
+        method: 'POST',
+        path: '/api/clients/register',
+        bodyRaw: '{\n  "phoneNumber": "+7999{{phone_suffix}}",\n  "firstName": "Тестер",\n  "lastName": "Профильный"\n}',
+        headers: [],
+        extract: [{ name: 'clientId', path: '$.data.id' }],
+        expectStatus: '200',
+        asserts: []
+      },
+      {
+        id: 'get_profile',
+        title: 'Запрос профиля клиента',
+        type: 'http',
+        role: 'client',
+        method: 'GET',
+        path: '/api/clients/profile',
+        bodyRaw: '',
+        headers: [],
+        extract: [],
+        expectStatus: '200',
+        asserts: [{ path: '$.status', op: 'eq', value: 'success' }]
+      }
+    ]
+  },
+  menu_smoke: {
+    key: 'custom_menu_smoke',
+    title: 'Смоук: каталог меню и модификаторы',
+    description: 'Проверка ручек списка блюд, категорий и модификаторов ресторана',
+    tags: ['menu', 'rest', 'smoke'],
+    vars: {},
+    dependsOn: [],
+    steps: [
+      {
+        id: 'get_dishes',
+        title: 'Получение каталога блюд',
+        type: 'http',
+        role: 'client',
+        method: 'GET',
+        path: '/api/clients/dishes',
+        bodyRaw: '',
+        headers: [],
+        extract: [{ name: 'firstDishId', path: '$.data[0].id' }],
+        expectStatus: '200',
+        asserts: [{ path: '$.data', op: 'notEmpty' }]
+      },
+      {
+        id: 'get_modificators',
+        title: 'Проверка модификаторов блюд ресторана',
+        type: 'http',
+        role: 'client',
+        method: 'GET',
+        path: '/api/rests/modificators',
+        bodyRaw: '',
+        headers: [],
+        extract: [],
+        expectStatus: '200',
+        asserts: []
+      }
+    ]
+  },
+  rbac_gate: {
+    key: 'custom_rbac_security',
+    title: 'RBAC: закрытый доступ без токена (401)',
+    description: 'Проверка защиты приватных ручек бэкенда от неавторизованных запросов',
+    tags: ['security', 'rbac', '401'],
+    vars: {},
+    dependsOn: [],
+    steps: [
+      {
+        id: 'unauth_access',
+        title: 'Попытка вызова админ-ручки без авторизации',
+        type: 'http',
+        role: 'none',
+        method: 'POST',
+        path: '/api/admin/give-order-to-courier',
+        bodyRaw: '{\n  "orderId": "test-123"\n}',
+        headers: [],
+        extract: [],
+        expectStatus: '401',
+        asserts: []
+      }
+    ]
+  }
+};
+
+function insertPresetScenario(presetKey) {
+  const tpl = PRESET_SCENARIOS[presetKey];
+  if (!tpl) return;
+  editorState = {
+    isNew: true,
+    originalKey: null,
+    key: tpl.key,
+    title: tpl.title,
+    description: tpl.description,
+    tagsRaw: (tpl.tags || []).join(', '),
+    dependsOn: [...(tpl.dependsOn || [])],
+    vars: Object.entries(tpl.vars || {}).map(([name, value]) => ({ name, value: String(value) })),
+    steps: JSON.parse(JSON.stringify(tpl.steps))
+  };
+  if (!editorState.vars.length) editorState.vars = [{ name: '', value: '' }];
+  setKeyInputLocked(false);
+  hideScenariosError();
+  renderEditorForm();
+  toastSuccess(`Шаблон «${tpl.title}» загружен в форму.`);
+}
+window.insertPresetScenario = insertPresetScenario;
+
 function newScenario() {
   blankScenarioState();
   setKeyInputLocked(false);
