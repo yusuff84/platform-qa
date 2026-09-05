@@ -59,8 +59,18 @@ func (o *TestOrchestrator) runUserScenario(ctx context.Context, run *TestRun, ke
 		vars[k] = v
 	}
 
+	stepIndexMap := make(map[string]int, len(scen.Steps))
 	for i := range scen.Steps {
-		step := scen.Steps[i]
+		stepIndexMap[scen.Steps[i].ID] = i
+	}
+
+	currentIdx := 0
+	transitions := 0
+	const maxTransitions = 200
+
+	for currentIdx >= 0 && currentIdx < len(scen.Steps) && transitions < maxTransitions {
+		transitions++
+		step := scen.Steps[currentIdx]
 		title := step.Title
 		if title == "" {
 			title = step.ID
@@ -72,14 +82,80 @@ func (o *TestOrchestrator) runUserScenario(ctx context.Context, run *TestRun, ke
 		msg, stepErr := o.execUserStep(ctx, &step, vars)
 		if stepErr != nil {
 			o.checkDone(run, key, step.ID, false, stepErr.Error(), started)
-			return fmt.Errorf("шаг %d/%d (%s): %w", i+1, len(scen.Steps), title, stepErr)
+			if step.OnFailure != "" {
+				if nextIdx, ok := stepIndexMap[step.OnFailure]; ok {
+					currentIdx = nextIdx
+					continue
+				}
+			}
+			return fmt.Errorf("шаг %d/%d (%s): %w", currentIdx+1, len(scen.Steps), title, stepErr)
 		}
 
 		run.PassedSteps++
 		o.checkDone(run, key, step.ID, true, msg, started)
+
+		if step.Type == "condition" && step.Condition != nil {
+			isTrue := evalCondition(step.Condition, vars)
+			targetID := step.Condition.Else
+			if isTrue {
+				targetID = step.Condition.Then
+			}
+			if targetID == "" {
+				currentIdx++
+			} else if nextIdx, ok := stepIndexMap[targetID]; ok {
+				currentIdx = nextIdx
+			} else {
+				currentIdx++
+			}
+			continue
+		}
+
+		if step.Next != "" {
+			if nextIdx, ok := stepIndexMap[step.Next]; ok {
+				currentIdx = nextIdx
+				continue
+			}
+		}
+
+		currentIdx++
 	}
 
 	return nil
+}
+
+func evalCondition(cond *scenario.StepCondition, vars map[string]string) bool {
+	if cond == nil {
+		return true
+	}
+	left := expandVars(cond.Left, vars)
+	target := ""
+	if cond.Value != nil {
+		target = fmt.Sprintf("%v", cond.Value)
+	}
+	switch cond.Op {
+	case "notEmpty":
+		return strings.TrimSpace(left) != ""
+	case "eq":
+		return left == target
+	case "neq":
+		return left != target
+	case "contains":
+		return strings.Contains(left, target)
+	default:
+		return left != ""
+	}
+}
+
+func execUserConditionStep(step *scenario.Step, vars map[string]string) (string, error) {
+	if step.Condition == nil {
+		return "", fmt.Errorf("condition object is required for condition step")
+	}
+	isTrue := evalCondition(step.Condition, vars)
+	branch := "Истина (Then)"
+	if !isTrue {
+		branch = "Ложь (Else)"
+	}
+	return fmt.Sprintf("Условие %s %s %v -> %s", step.Condition.Left, step.Condition.Op, step.Condition.Value, branch), nil
 }
 
 func (o *TestOrchestrator) execUserStep(ctx context.Context, step *scenario.Step, vars map[string]string) (string, error) {
@@ -90,6 +166,8 @@ func (o *TestOrchestrator) execUserStep(ctx context.Context, step *scenario.Step
 		return execUserDelayStep(step)
 	case "assert":
 		return execUserAssertStep(step, vars)
+	case "condition":
+		return execUserConditionStep(step, vars)
 	default:
 		return "", fmt.Errorf("неизвестный тип шага %q", step.Type)
 	}

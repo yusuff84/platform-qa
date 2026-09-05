@@ -60,8 +60,27 @@ func GetJSONSchema() map[string]interface{} {
 						},
 						"type": map[string]interface{}{
 							"type":        "string",
-							"enum":        []string{"http", "delay", "assert"},
-							"description": "Step action type: 'http', 'delay', or 'assert'",
+							"enum":        []string{"http", "delay", "assert", "condition"},
+							"description": "Step action type: 'http', 'delay', 'assert', or 'condition'",
+						},
+						"next": map[string]interface{}{
+							"type":        "string",
+							"description": "ID of next step to jump to (enables non-linear graph branching)",
+						},
+						"onFailure": map[string]interface{}{
+							"type":        "string",
+							"description": "ID of fallback step to jump to if this step encounters an error",
+						},
+						"condition": map[string]interface{}{
+							"type":        "object",
+							"description": "Branching condition for type=condition",
+							"properties": map[string]interface{}{
+								"left":  map[string]interface{}{"type": "string", "description": "Left operand with {{var}}"},
+								"op":    map[string]interface{}{"type": "string", "enum": []string{"notEmpty", "eq", "neq", "contains"}},
+								"value": map[string]interface{}{"description": "Expected value for condition"},
+								"then":  map[string]interface{}{"type": "string", "description": "Target step ID if condition is true"},
+								"else":  map[string]interface{}{"type": "string", "description": "Target step ID if condition is false"},
+							},
 						},
 						"role": map[string]interface{}{
 							"type":        "string",

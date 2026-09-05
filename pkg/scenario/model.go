@@ -16,7 +16,7 @@ var (
 	negClassRe  = regexp.MustCompile(`^![2-5]xx$`)
 
 	allowedRoles   = map[string]bool{"client": true, "rest": true, "courier": true, "admin": true, "none": true, "": true}
-	allowedTypes   = map[string]bool{"http": true, "delay": true, "assert": true}
+	allowedTypes   = map[string]bool{"http": true, "delay": true, "assert": true, "condition": true}
 	httpAssertOps  = map[string]bool{"eq": true, "neq": true, "contains": true, "exists": true}
 	checkAssertOps = map[string]bool{"notEmpty": true, "eq": true, "neq": true, "contains": true}
 	allowedMethods = map[string]bool{"GET": true, "POST": true, "PUT": true, "PATCH": true, "DELETE": true, "HEAD": true, "OPTIONS": true}
@@ -29,11 +29,20 @@ type Assert struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
+// StepCondition defines branching logic for non-linear graph scenarios.
+type StepCondition struct {
+	Left  string      `json:"left"`            // e.g. "{{status}}" or "{{orderId}}"
+	Op    string      `json:"op"`              // notEmpty | eq | neq | contains
+	Value interface{} `json:"value,omitempty"`
+	Then  string      `json:"then"`            // Target step ID if condition is true
+	Else  string      `json:"else,omitempty"`  // Target step ID if condition is false
+}
+
 // Step is a single executable action of a custom scenario.
 type Step struct {
 	ID           string            `json:"id"`
 	Title        string            `json:"title"`
-	Type         string            `json:"type"` // http | delay | assert
+	Type         string            `json:"type"` // http | delay | assert | condition
 	Role         string            `json:"role,omitempty"` // client|rest|courier|admin|none
 	Method       string            `json:"method,omitempty"`
 	Path         string            `json:"path,omitempty"`
@@ -45,6 +54,9 @@ type Step struct {
 	MS           int               `json:"ms,omitempty"`    // delay duration in ms
 	Check        *Assert           `json:"check,omitempty"` // type=assert: left={{var}}, op: notEmpty|eq|neq|contains
 	Left         string            `json:"left,omitempty"`
+	Next         string            `json:"next,omitempty"`      // explicit next step ID (non-linear jump)
+	OnFailure    string            `json:"onFailure,omitempty"` // fallback step ID if this step fails
+	Condition    *StepCondition    `json:"condition,omitempty"` // branch condition definition
 }
 
 // Scenario is a user-defined test scenario persisted as <DataDir>/scenarios/<key>.json.
@@ -119,9 +131,37 @@ func (s *Scenario) Validate() error {
 			if !checkAssertOps[st.Check.Op] {
 				return fmt.Errorf("%s.check.op: допустимы notEmpty|eq|neq|contains, получено %q", prefix, st.Check.Op)
 			}
+		case "condition":
+			if st.Condition == nil {
+				return fmt.Errorf("%s.condition: обязателен для шага типа condition", prefix)
+			}
+			if !checkAssertOps[st.Condition.Op] {
+				return fmt.Errorf("%s.condition.op: допустимы notEmpty|eq|neq|contains, получено %q", prefix, st.Condition.Op)
+			}
+			if st.Condition.Then == "" {
+				return fmt.Errorf("%s.condition.then: обязателен целевой шаг при истинном условии", prefix)
+			}
 		case "delay":
 			if st.MS < 0 || st.MS > 30000 {
 				return fmt.Errorf("%s.ms: должно быть в диапазоне 0..30000, получено %d", prefix, st.MS)
+			}
+		}
+	}
+
+	for i, st := range s.Steps {
+		prefix := fmt.Sprintf("steps[%d]", i)
+		if st.Next != "" && !seen[st.Next] {
+			return fmt.Errorf("%s.next: целевой шаг %q не найден в сценарии", prefix, st.Next)
+		}
+		if st.OnFailure != "" && !seen[st.OnFailure] {
+			return fmt.Errorf("%s.onFailure: целевой шаг %q не найден в сценарии", prefix, st.OnFailure)
+		}
+		if st.Condition != nil {
+			if st.Condition.Then != "" && !seen[st.Condition.Then] {
+				return fmt.Errorf("%s.condition.then: целевой шаг %q не найден в сценарии", prefix, st.Condition.Then)
+			}
+			if st.Condition.Else != "" && !seen[st.Condition.Else] {
+				return fmt.Errorf("%s.condition.else: целевой шаг %q не найден в сценарии", prefix, st.Condition.Else)
 			}
 		}
 	}

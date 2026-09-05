@@ -451,6 +451,22 @@
             </button>
           </div>
 
+          <!-- Visual Flow Board Hero Banner -->
+          <div class="p-3.5 rounded-xl bg-zinc-900 border border-darkborder flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-100 shrink-0">
+                <i class="fa-solid fa-diagram-project text-sm"></i>
+              </div>
+              <div>
+                <h3 class="text-xs font-semibold text-white">Интерактивный борд схемы сценария</h3>
+                <p class="text-[11px] text-zinc-400 mt-0.5">Визуальное создание графа, нелинейные ветвления (IF/ELSE, Fallback), инспектор свойств</p>
+              </div>
+            </div>
+            <button onclick="openFlowBoard()" type="button" class="px-3.5 py-1.5 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5 text-xs shrink-0">
+              <i class="fa-solid fa-expand text-xs"></i><span>Открыть борд схемы</span>
+            </button>
+          </div>
+
           <div id="scenariosErrorBox" class="hidden px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono whitespace-pre-wrap break-all"></div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -1888,6 +1904,123 @@
     <div class="px-4 py-1.5 border-t border-darkborder bg-slate-900 text-[10px] text-slate-500 flex items-center justify-between gap-2 shrink-0 flex-wrap">
       <span>Буфер: до 3000 последних записей · клик по строке с прогоном → фильтр по этому прогону · Esc — закрыть</span>
       <span class="font-mono">SSE /api/events</span>
+    </div>
+  </div>
+
+  <!-- Interactive Flow Board Full Workspace Modal -->
+  <div id="flowBoardModal" class="board-workspace hidden pop-in">
+    <!-- Board Header -->
+    <div class="h-14 border-b border-darkborder bg-zinc-900 px-4 flex items-center justify-between gap-3 shrink-0">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200 shrink-0">
+          <i class="fa-solid fa-diagram-project text-sm"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h3 id="boardScenarioTitle" class="text-sm font-semibold text-white truncate">Интерактивный борд схемы</h3>
+            <span id="boardStepCountBadge" class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700">0 узлов</span>
+          </div>
+          <div id="boardScenarioKey" class="text-[11px] font-mono text-zinc-400 truncate">my_flow_check</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="runBoardScenario(this)" type="button" title="Запустить сценарий прямо из борда" class="px-3.5 py-1.5 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs rounded-lg shadow-sm transition flex items-center gap-1.5">
+          <i class="fa-solid fa-play text-xs"></i><span>Запустить тест</span>
+        </button>
+        <button onclick="saveBoardScenario(this)" type="button" title="Сохранить изменения сценария" class="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold rounded-lg transition flex items-center gap-1.5">
+          <i class="fa-solid fa-floppy-disk text-xs"></i><span>Сохранить</span>
+        </button>
+        <button onclick="closeFlowBoard()" type="button" title="Закрыть борд (Esc)" class="w-8 h-8 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-darkborder rounded-lg transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Board Workspace: Toolbox + Canvas + Inspector -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+      <!-- Left Sidebar: Toolbox -->
+      <div class="board-toolbox p-3 space-y-4">
+        <div>
+          <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-1 mb-2">Инструменты</div>
+          <div class="space-y-2 text-xs">
+            <div onclick="addBoardNode('http')" class="toolbox-item" title="Добавить HTTP запрос">
+              <i class="fa-solid fa-globe text-zinc-400"></i>
+              <div>
+                <div class="text-white font-medium">HTTP Запрос</div>
+                <div class="text-[10px] text-zinc-500">API вызов ручки</div>
+              </div>
+            </div>
+
+            <div onclick="addBoardNode('condition')" class="toolbox-item" title="Добавить узел ветвления (IF / ELSE)">
+              <i class="fa-solid fa-code-branch text-zinc-400"></i>
+              <div>
+                <div class="text-white font-medium">Ветвление IF/ELSE</div>
+                <div class="text-[10px] text-zinc-500">Нелинейный переход</div>
+              </div>
+            </div>
+
+            <div onclick="addBoardNode('delay')" class="toolbox-item" title="Добавить паузу">
+              <i class="fa-solid fa-hourglass-half text-zinc-400"></i>
+              <div>
+                <div class="text-white font-medium">Пауза (Delay)</div>
+                <div class="text-[10px] text-zinc-500">Ожидание в мс</div>
+              </div>
+            </div>
+
+            <div onclick="addBoardNode('assert')" class="toolbox-item" title="Добавить проверку переменной">
+              <i class="fa-solid fa-clipboard-check text-zinc-400"></i>
+              <div>
+                <div class="text-white font-medium">Проверка (Assert)</div>
+                <div class="text-[10px] text-zinc-500">Валидация переменной</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-darkborder space-y-2">
+          <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-1">Шаблоны в граф</div>
+          <button onclick="insertPresetScenario('order_flow'); renderBoardFlow();" type="button" class="w-full text-left px-2 py-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[11px] transition">
+            • Создание заказа
+          </button>
+          <button onclick="insertPresetScenario('client_reg'); renderBoardFlow();" type="button" class="w-full text-left px-2 py-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[11px] transition">
+            • Регистрация клиента
+          </button>
+          <button onclick="insertPresetScenario('rbac_gate'); renderBoardFlow();" type="button" class="w-full text-left px-2 py-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[11px] transition">
+            • RBAC 401 проверка
+          </button>
+        </div>
+
+        <div class="mt-auto pt-3 border-t border-darkborder text-[11px] text-zinc-500 space-y-1">
+          <p>• Кликните на узел для редактирования в инспекторе справа.</p>
+          <p>• Зелёная ветка — истина (Then).</p>
+          <p>• Красная ветка — ложь (Else) или Fallback.</p>
+        </div>
+      </div>
+
+      <!-- Center: Canvas Area -->
+      <div id="boardCanvasArea" class="board-canvas-area">
+        <div id="boardCanvasFlow" class="flex items-center gap-0 min-w-full">
+          <!-- Dynamically rendered board nodes & connectors -->
+        </div>
+      </div>
+
+      <!-- Right Sidebar: Inspector -->
+      <div id="boardInspector" class="board-inspector p-4 space-y-4">
+        <div class="flex items-center justify-between border-b border-darkborder pb-2.5">
+          <div class="flex items-center gap-2">
+            <span id="inspectorTypeIcon" class="text-zinc-400 text-sm"><i class="fa-solid fa-sliders"></i></span>
+            <span id="inspectorTitle" class="text-xs font-semibold text-white">Свойства узла</span>
+          </div>
+          <button onclick="closeBoardInspector()" class="text-zinc-400 hover:text-white transition"><i class="fa-solid fa-xmark text-xs"></i></button>
+        </div>
+
+        <div id="inspectorContent" class="space-y-3 text-xs flex-1 overflow-y-auto">
+          <!-- Populated when a node is clicked -->
+        </div>
+      </div>
+
     </div>
   </div>
 

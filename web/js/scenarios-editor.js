@@ -15,6 +15,7 @@ const ASSERT_OPS_HTTP = ['eq', 'neq', 'contains', 'exists'];
 const ASSERT_OPS_STEP = ['notEmpty', 'eq', 'neq', 'contains'];
 const STEP_TYPES = [
   { value: 'http', label: 'HTTP запрос' },
+  { value: 'condition', label: 'Ветвление IF/ELSE (condition)' },
   { value: 'delay', label: 'Задержка (delay)' },
   { value: 'assert', label: 'Проверка переменной (assert)' },
 ];
@@ -28,7 +29,7 @@ let editorSuitesRegistry = [];
 let editorState = null;
 
 function makeStep(type, usedIds) {
-  const base = { type, id: '', title: '' };
+  const base = { type, id: '', title: '', next: '', onFailure: '' };
   if (type === 'http') {
     base.role = 'client';
     base.method = 'GET';
@@ -40,6 +41,14 @@ function makeStep(type, usedIds) {
     base.asserts = [];
   } else if (type === 'delay') {
     base.ms = '500';
+  } else if (type === 'condition') {
+    base.condition = {
+      left: '{{status}}',
+      op: 'eq',
+      value: '200',
+      then: '',
+      else: ''
+    };
   } else {
     base.left = '';
     base.op = 'notEmpty';
@@ -65,7 +74,13 @@ function convertStep(oldStep, type) {
 
 function normalizeStep(s) {
   const type = s.type || 'http';
-  const base = { type, id: s.id || '', title: s.title || '' };
+  const base = {
+    type,
+    id: s.id || '',
+    title: s.title || '',
+    next: s.next || '',
+    onFailure: s.onFailure || ''
+  };
   if (type === 'http') {
     base.role = HTTP_ROLES.includes(s.role) ? s.role : 'none';
     base.method = HTTP_METHODS.includes(s.method) ? s.method : 'GET';
@@ -81,6 +96,14 @@ function normalizeStep(s) {
     }));
   } else if (type === 'delay') {
     base.ms = (s.ms === undefined || s.ms === null) ? '500' : String(s.ms);
+  } else if (type === 'condition') {
+    base.condition = {
+      left: (s.condition && s.condition.left) || s.left || '{{status}}',
+      op: (s.condition && s.condition.op) || 'eq',
+      value: (s.condition && s.condition.value !== undefined && s.condition.value !== null) ? String(s.condition.value) : '200',
+      then: (s.condition && s.condition.then) || '',
+      else: (s.condition && s.condition.else) || ''
+    };
   } else {
     base.left = s.left || '';
     base.op = ASSERT_OPS_STEP.includes(s.check && s.check.op) ? s.check.op : 'notEmpty';
@@ -1461,3 +1484,427 @@ function importAiGeneratedScenario() {
   }
 }
 window.importAiGeneratedScenario = importAiGeneratedScenario;
+
+// ==========================================
+// INTERACTIVE VISUAL WORKFLOW BOARD & INSPECTOR
+// ==========================================
+
+let selectedBoardNodeIdx = null;
+
+function openFlowBoard() {
+  harvestEditor();
+  const modal = document.getElementById('flowBoardModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const titleEl = document.getElementById('boardScenarioTitle');
+  if (titleEl) titleEl.textContent = editorState.title || 'Новый сценарий';
+  const keyEl = document.getElementById('boardScenarioKey');
+  if (keyEl) keyEl.textContent = editorState.key || 'custom_flow';
+
+  renderBoardFlow();
+  if (editorState.steps.length > 0) {
+    selectBoardNode(0);
+  } else {
+    closeBoardInspector();
+  }
+}
+window.openFlowBoard = openFlowBoard;
+
+function closeFlowBoard() {
+  const modal = document.getElementById('flowBoardModal');
+  if (modal) modal.classList.add('hidden');
+  renderEditorForm();
+}
+window.closeFlowBoard = closeFlowBoard;
+
+function selectBoardNode(idx) {
+  selectedBoardNodeIdx = idx;
+  renderBoardFlow();
+  renderBoardInspector(idx);
+}
+window.selectBoardNode = selectBoardNode;
+
+function closeBoardInspector() {
+  selectedBoardNodeIdx = null;
+  const insp = document.getElementById('boardInspector');
+  if (insp) insp.classList.add('hidden');
+  renderBoardFlow();
+}
+window.closeBoardInspector = closeBoardInspector;
+
+function addBoardNode(type) {
+  harvestEditor();
+  const step = makeStep(type || 'http');
+  editorState.steps.push(step);
+  selectBoardNode(editorState.steps.length - 1);
+  toastSuccess(`Узел [${type.toUpperCase()}] добавлен на борд`);
+}
+window.addBoardNode = addBoardNode;
+
+function clearBoardSteps() {
+  if (!confirm('Очистить все шаги на схеме?')) return;
+  editorState.steps = [makeStep('http')];
+  selectBoardNode(0);
+  toastInfo('Схема сброшена');
+}
+window.clearBoardSteps = clearBoardSteps;
+
+function autoLayoutBoard() {
+  renderBoardFlow();
+  toastInfo('Узлы схемы выровнены');
+}
+window.autoLayoutBoard = autoLayoutBoard;
+
+function saveBoardScenario(btn) {
+  saveScenario(btn);
+}
+window.saveBoardScenario = saveBoardScenario;
+
+function runBoardScenario(btn) {
+  runScenarioFromEditor(btn);
+}
+window.runBoardScenario = runBoardScenario;
+
+function renderBoardFlow() {
+  const container = document.getElementById('boardCanvasFlow');
+  const badge = document.getElementById('boardStepCountBadge');
+  if (!container || !editorState) return;
+
+  const steps = editorState.steps || [];
+  if (badge) {
+    badge.textContent = `${steps.length} ${pluralRu(steps.length, ['узел', 'узла', 'узлов'])}`;
+  }
+
+  // 1. Start Node
+  const varCount = (editorState.vars || []).filter(v => v.name).length;
+  const varsHtml = varCount
+    ? editorState.vars.filter(v => v.name).map(v => `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700 truncate max-w-[170px]">${escapeHtml(v.name)}=${escapeHtml(v.value || '""')}</span>`).join('')
+    : '<span class="text-[10px] text-zinc-500 italic">Без переменных</span>';
+
+  let html = `
+    <!-- START NODE -->
+    <div class="flow-node p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center gap-1">
+          <i class="fa-solid fa-play text-[8px] text-emerald-400"></i>СТАРТ
+        </span>
+        <span class="text-[10px] font-mono text-zinc-500">Вход</span>
+      </div>
+      <div>
+        <div class="text-xs font-semibold text-white">Входной контекст</div>
+        <div class="flex flex-wrap gap-1 mt-1.5">${varsHtml}</div>
+      </div>
+    </div>
+    <div class="flow-connector">
+      <div class="flow-line"></div>
+      <i class="fa-solid fa-chevron-right flow-arrow-icon"></i>
+    </div>
+  `;
+
+  // 2. Steps Nodes
+  steps.forEach((step, idx) => {
+    const isSel = idx === selectedBoardNodeIdx;
+    const isHttp = step.type === 'http';
+    const isDelay = step.type === 'delay';
+    const isCondition = step.type === 'condition';
+
+    const typeBadge = isHttp
+      ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-800 text-zinc-100 border border-zinc-700">${escapeHtml(step.method || 'GET')}</span>`
+      : isCondition
+      ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-950/40 text-amber-300 border border-amber-800/40"><i class="fa-solid fa-code-branch mr-1"></i>IF/ELSE</span>`
+      : isDelay
+      ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700"><i class="fa-solid fa-hourglass-half mr-1 text-zinc-400"></i>DELAY</span>`
+      : `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700"><i class="fa-solid fa-clipboard-check mr-1 text-zinc-400"></i>ASSERT</span>`;
+
+    let detailsHtml = '';
+    if (isHttp) {
+      detailsHtml = `
+        <div class="font-mono text-[11px] text-zinc-200 truncate bg-zinc-950 px-2 py-1 rounded border border-darkborder" title="${escAttr(step.path)}">
+          ${escapeHtml(step.path || '/api/...')}
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap text-[10px]">
+          ${step.role ? `<span class="px-1.5 py-0.2 rounded font-mono bg-zinc-800 text-zinc-300 border border-darkborder">роль: ${escapeHtml(step.role)}</span>` : ''}
+          ${step.expectStatus ? `<span class="px-1.5 py-0.2 rounded font-mono bg-zinc-800 text-zinc-300 border border-darkborder">код: ${escapeHtml(String(step.expectStatus))}</span>` : ''}
+        </div>
+      `;
+    } else if (isCondition) {
+      const cond = step.condition || { left: '{{status}}', op: 'eq', value: '200' };
+      detailsHtml = `
+        <div class="font-mono text-[11px] text-zinc-200 bg-zinc-950 px-2 py-1 rounded border border-darkborder truncate" title="${escAttr(cond.left)} ${escAttr(cond.op)} ${escAttr(cond.value)}">
+          ${escapeHtml(cond.left)} <span class="text-amber-400">${escapeHtml(cond.op)}</span> ${escapeHtml(cond.value || '')}
+        </div>
+        <div class="space-y-0.5 pt-1 text-[10px] font-mono">
+          <div class="text-emerald-400 truncate">➔ ИСТИНА: ${escapeHtml(cond.then || '(след.)')}</div>
+          <div class="text-red-400 truncate">➔ ЛОЖЬ: ${escapeHtml(cond.else || '(продолжить)')}</div>
+        </div>
+      `;
+    } else if (isDelay) {
+      detailsHtml = `
+        <div class="text-xs text-zinc-300 flex items-center gap-1.5">
+          <i class="fa-regular fa-clock text-zinc-500"></i>
+          <span>Пауза: <strong class="text-white">${escapeHtml(step.ms || '500')} мс</strong></span>
+        </div>
+      `;
+    } else {
+      detailsHtml = `
+        <div class="font-mono text-[11px] text-zinc-200 bg-zinc-950 px-2 py-1 rounded border border-darkborder truncate">
+          ${escapeHtml(step.left || 'var')} <span class="text-zinc-500">${escapeHtml(step.op)}</span> ${escapeHtml(step.value || '')}
+        </div>
+      `;
+    }
+
+    if (step.onFailure) {
+      detailsHtml += `<div class="text-[9px] font-mono text-red-400 pt-1 border-t border-darkborder truncate">Fallback ➔ ${escapeHtml(step.onFailure)}</div>`;
+    }
+
+    html += `
+      <!-- NODE #${idx + 1} -->
+      <div class="flow-node p-3 space-y-2 cursor-pointer ${isSel ? 'active-node' : ''}" onclick="selectBoardNode(${idx})">
+        <div class="flex items-center justify-between gap-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            ${typeBadge}
+            <span class="text-[10px] font-mono text-zinc-400">#${idx + 1}</span>
+          </div>
+          <div class="flex items-center gap-1 shrink-0" onclick="event.stopPropagation()">
+            <button onclick="selectBoardNode(${idx})" type="button" class="w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] flex items-center justify-center transition" title="Открыть инспектор"><i class="fa-solid fa-sliders"></i></button>
+            <button onclick="removeStep(${idx}); renderBoardFlow();" type="button" class="w-5 h-5 rounded bg-zinc-800 hover:bg-red-950 text-zinc-400 hover:text-red-400 text-[10px] flex items-center justify-center transition" title="Удалить узел"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs font-semibold text-white truncate" title="${escAttr(step.title || step.id)}">${escapeHtml(step.title || step.id)}</div>
+          <div class="text-[10px] font-mono text-zinc-500 truncate">${escapeHtml(step.id)}</div>
+        </div>
+
+        ${detailsHtml}
+      </div>
+    `;
+
+    // Connector between nodes
+    if (isCondition) {
+      html += `
+        <div class="flow-connector flex flex-col gap-1.5 py-1">
+          <div class="flex items-center">
+            <div class="flow-line bg-emerald-500"></div>
+            <span class="text-[8px] font-mono font-bold text-emerald-400 px-1 bg-zinc-900 rounded border border-emerald-500/30">ДА</span>
+            <i class="fa-solid fa-chevron-right text-emerald-400 text-[10px] ml-0.5"></i>
+          </div>
+          <div class="flex items-center">
+            <div class="flow-line bg-red-500"></div>
+            <span class="text-[8px] font-mono font-bold text-red-400 px-1 bg-zinc-900 rounded border border-red-500/30">НЕТ</span>
+            <i class="fa-solid fa-chevron-right text-red-400 text-[10px] ml-0.5"></i>
+          </div>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="flow-connector flex items-center">
+          <div class="flow-line"></div>
+          <button onclick="event.stopPropagation(); insertStepAt(${idx + 1}); renderBoardFlow(); selectBoardNode(${idx + 1});" title="Вставить шаг здесь" class="w-5 h-5 rounded-full bg-zinc-800 hover:bg-white hover:text-zinc-950 text-zinc-400 border border-darkborder flex items-center justify-center text-[10px] transition shadow-sm shrink-0">
+            <i class="fa-solid fa-plus text-[9px]"></i>
+          </button>
+          <div class="flow-line"></div>
+          <i class="fa-solid fa-chevron-right flow-arrow-icon"></i>
+        </div>
+      `;
+    }
+  });
+
+  // 3. End Node
+  html += `
+    <!-- END NODE -->
+    <div class="flow-node p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center gap-1">
+          <i class="fa-solid fa-flag-checkered text-[9px] text-emerald-400"></i>ФИНИШ
+        </span>
+        <span class="text-[10px] font-mono text-zinc-500">Завершение</span>
+      </div>
+      <div>
+        <div class="text-xs font-semibold text-white">Успех сценария</div>
+        <div class="text-[10px] text-zinc-400 mt-1">Все утверждения верны</div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+function renderBoardInspector(idx) {
+  const insp = document.getElementById('boardInspector');
+  const title = document.getElementById('inspectorTitle');
+  const content = document.getElementById('inspectorContent');
+  if (!insp || !content || idx === null || !editorState.steps[idx]) return;
+
+  const step = editorState.steps[idx];
+  insp.classList.remove('hidden');
+  if (title) title.textContent = `Узел #${idx + 1}: ${step.title || step.id}`;
+
+  const allStepIds = editorState.steps.map(s => s.id).filter(id => id && id !== step.id);
+  const nextOptions = ['<option value="">Следующий по порядку</option>']
+    .concat(allStepIds.map(id => `<option value="${escAttr(id)}" ${step.next === id ? 'selected' : ''}>Перейти к: ${escapeHtml(id)}</option>`)).join('');
+  const failOptions = ['<option value="">Остановить прогон с ошибкой</option>']
+    .concat(allStepIds.map(id => `<option value="${escAttr(id)}" ${step.onFailure === id ? 'selected' : ''}>Fallback к: ${escapeHtml(id)}</option>`)).join('');
+
+  let specificFields = '';
+  if (step.type === 'http') {
+    specificFields = `
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="${SC_LBL}">Метод</label>
+          <select onchange="updateBoardStep(${idx}, 'method', this.value)" class="${SC_INP}">
+            ${HTTP_METHODS.map(m => `<option value="${m}" ${step.method === m ? 'selected' : ''}>${m}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="${SC_LBL}">Роль (токен)</label>
+          <select onchange="updateBoardStep(${idx}, 'role', this.value)" class="${SC_INP}">
+            ${HTTP_ROLES.map(r => `<option value="${r}" ${step.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="${SC_LBL}">Путь (Path)</label>
+        <input oninput="updateBoardStep(${idx}, 'path', this.value)" value="${escAttr(step.path)}" placeholder="/api/clients/register" class="${SC_INP} font-mono">
+      </div>
+
+      <div>
+        <label class="${SC_LBL}">Ожидаемый HTTP статус</label>
+        <input oninput="updateBoardStep(${idx}, 'expectStatus', this.value)" value="${escAttr(step.expectStatus || '')}" placeholder="200, 401, 2xx" class="${SC_INP} font-mono">
+      </div>
+
+      <div>
+        <label class="${SC_LBL}">JSON Тело запроса (Body)</label>
+        <textarea oninput="updateBoardStep(${idx}, 'bodyRaw', this.value)" rows="4" placeholder="{}" class="${SC_INP} font-mono text-[11px] leading-relaxed">${escapeHtml(step.bodyRaw || '')}</textarea>
+      </div>
+    `;
+  } else if (step.type === 'condition') {
+    const cond = step.condition || { left: '{{status}}', op: 'eq', value: '200' };
+    const thenOptions = allStepIds.map(id => `<option value="${escAttr(id)}" ${cond.then === id ? 'selected' : ''}>${escapeHtml(id)}</option>`).join('');
+    const elseOptions = ['<option value="">Продолжить по порядку</option>'].concat(allStepIds.map(id => `<option value="${escAttr(id)}" ${cond.else === id ? 'selected' : ''}>${escapeHtml(id)}</option>`)).join('');
+
+    specificFields = `
+      <div>
+        <label class="${SC_LBL}">Переменная для проверки (Left)</label>
+        <input oninput="updateBoardCondition(${idx}, 'left', this.value)" value="${escAttr(cond.left)}" placeholder="{{status}} или {{orderId}}" class="${SC_INP} font-mono">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="${SC_LBL}">Оператор</label>
+          <select onchange="updateBoardCondition(${idx}, 'op', this.value)" class="${SC_INP}">
+            ${ASSERT_OPS_STEP.map(o => `<option value="${o}" ${cond.op === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="${SC_LBL}">Значение (Value)</label>
+          <input oninput="updateBoardCondition(${idx}, 'value', this.value)" value="${escAttr(cond.value || '')}" placeholder="200, success" class="${SC_INP} font-mono">
+        </div>
+      </div>
+      <div>
+        <label class="${SC_LBL} text-emerald-400 font-bold">Если ИСТИНА (Then) ➔ перейти к:</label>
+        <select onchange="updateBoardCondition(${idx}, 'then', this.value)" class="${SC_INP} font-mono">
+          <option value="">Выберите целевой шаг...</option>
+          ${thenOptions}
+        </select>
+      </div>
+      <div>
+        <label class="${SC_LBL} text-red-400 font-bold">Если ЛОЖЬ (Else) ➔ перейти к:</label>
+        <select onchange="updateBoardCondition(${idx}, 'else', this.value)" class="${SC_INP} font-mono">
+          ${elseOptions}
+        </select>
+      </div>
+    `;
+  } else if (step.type === 'delay') {
+    specificFields = `
+      <div>
+        <label class="${SC_LBL}">Задержка выполнения (мс)</label>
+        <input type="number" oninput="updateBoardStep(${idx}, 'ms', this.value)" value="${escAttr(step.ms || '500')}" class="${SC_INP} font-mono">
+      </div>
+    `;
+  } else {
+    specificFields = `
+      <div>
+        <label class="${SC_LBL}">Переменная (Left)</label>
+        <input oninput="updateBoardStep(${idx}, 'left', this.value)" value="${escAttr(step.left || '')}" placeholder="{{clientId}}" class="${SC_INP} font-mono">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="${SC_LBL}">Оператор</label>
+          <select onchange="updateBoardStep(${idx}, 'op', this.value)" class="${SC_INP}">
+            ${ASSERT_OPS_STEP.map(o => `<option value="${o}" ${step.op === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="${SC_LBL}">Значение</label>
+          <input oninput="updateBoardStep(${idx}, 'value', this.value)" value="${escAttr(step.value || '')}" class="${SC_INP} font-mono">
+        </div>
+      </div>
+    `;
+  }
+
+  content.innerHTML = `
+    <div>
+      <label class="${SC_LBL}">ID шага (snake_case)</label>
+      <input oninput="updateBoardStep(${idx}, 'id', this.value)" value="${escAttr(step.id)}" class="${SC_INP} font-mono">
+    </div>
+
+    <div>
+      <label class="${SC_LBL}">Название шага</label>
+      <input oninput="updateBoardStep(${idx}, 'title', this.value)" value="${escAttr(step.title)}" placeholder="Краткое описание" class="${SC_INP}">
+    </div>
+
+    <div>
+      <label class="${SC_LBL}">Тип шага</label>
+      <select onchange="changeStepType(${idx}, this.value); selectBoardNode(${idx});" class="${SC_INP}">
+        ${STEP_TYPES.map(t => `<option value="${t.value}" ${step.type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
+      </select>
+    </div>
+
+    ${specificFields}
+
+    <!-- Non-linear graph routing -->
+    <div class="pt-3 border-t border-darkborder space-y-2">
+      <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Нелинейная маршрутизация</div>
+      <div>
+        <label class="${SC_LBL}">Следующий шаг (Next Jump)</label>
+        <select onchange="updateBoardStep(${idx}, 'next', this.value)" class="${SC_INP} font-mono">
+          ${nextOptions}
+        </select>
+      </div>
+      <div>
+        <label class="${SC_LBL}">При ошибке (Fallback Handler)</label>
+        <select onchange="updateBoardStep(${idx}, 'onFailure', this.value)" class="${SC_INP} font-mono">
+          ${failOptions}
+        </select>
+      </div>
+    </div>
+  `;
+}
+
+function updateBoardStep(idx, field, val) {
+  if (!editorState.steps[idx]) return;
+  editorState.steps[idx][field] = val;
+  renderBoardFlow();
+  updateScenarioJson();
+}
+window.updateBoardStep = updateBoardStep;
+
+function updateBoardCondition(idx, field, val) {
+  if (!editorState.steps[idx]) return;
+  if (!editorState.steps[idx].condition) editorState.steps[idx].condition = {};
+  editorState.steps[idx].condition[field] = val;
+  renderBoardFlow();
+  updateScenarioJson();
+}
+window.updateBoardCondition = updateBoardCondition;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const board = document.getElementById('flowBoardModal');
+    if (board && !board.classList.contains('hidden')) {
+      closeFlowBoard();
+    }
+  }
+});
