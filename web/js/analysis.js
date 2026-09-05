@@ -530,6 +530,7 @@ let gitlabToken = '';
 let localRepoPath = '/locali_director';
 let mobileAppsList = [];
 let selectedMobileAppId = 'all';
+let mobileFilterApp = 'all';
 
 async function loadMobileApps() {
   try {
@@ -546,10 +547,29 @@ async function loadMobileApps() {
   }
 }
 
-function selectMobileApp(id) {
-  selectedMobileAppId = id;
+function setMobileFilterApp(appName) {
+  mobileFilterApp = appName || 'all';
+  if (mobileFilterApp === 'all') {
+    selectedMobileAppId = 'all';
+  } else {
+    const app = mobileAppsList.find(a => a.name === mobileFilterApp || a.id === mobileFilterApp);
+    if (app) selectedMobileAppId = app.id;
+  }
   renderMobileContractView();
 }
+window.setMobileFilterApp = setMobileFilterApp;
+
+function selectMobileApp(id) {
+  selectedMobileAppId = id || 'all';
+  if (selectedMobileAppId === 'all') {
+    mobileFilterApp = 'all';
+  } else {
+    const app = mobileAppsList.find(a => a.id === selectedMobileAppId);
+    if (app) mobileFilterApp = app.name;
+  }
+  renderMobileContractView();
+}
+window.selectMobileApp = selectMobileApp;
 
 function openAddMobileAppModal() {
   document.getElementById('mobileAppEditId').value = '';
@@ -823,11 +843,21 @@ function renderMobileContractView() {
     if (mobileFilterStatus === 'crash' && r.status !== 'INCOMPATIBLE_CRASH') return false;
     if (mobileFilterStatus === 'warn' && r.status !== 'WARNINGS') return false;
     if (mobileFilterStatus === 'ok' && r.status !== 'COMPATIBLE') return false;
+
+    // Filter by Application Name
+    if (mobileFilterApp !== 'all') {
+      const matchName = r.appName === mobileFilterApp;
+      const targetApp = mobileAppsList.find(a => a.name === mobileFilterApp);
+      const matchPlat = targetApp && r.model && r.model.platform === targetApp.platform;
+      if (!matchName && !matchPlat) return false;
+    }
+
     if (mobileFilterPlatform !== 'all' && r.model.platform !== mobileFilterPlatform) return false;
     if (mobileFilterSearch) {
-      const matchName = r.model.name.toLowerCase().includes(mobileFilterSearch);
-      const matchFile = r.model.filePath.toLowerCase().includes(mobileFilterSearch);
-      if (!matchName && !matchFile) return false;
+      const matchName = (r.model.name || '').toLowerCase().includes(mobileFilterSearch);
+      const matchFile = (r.model.filePath || '').toLowerCase().includes(mobileFilterSearch);
+      const matchApp = (r.appName || '').toLowerCase().includes(mobileFilterSearch);
+      if (!matchName && !matchFile && !matchApp) return false;
     }
     return true;
   });
@@ -1111,20 +1141,32 @@ function renderMobileContractView() {
       </div>
 
       <!-- Filter / Search toolbar -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
         <div class="flex items-center gap-1.5 flex-wrap">
-          <span class="text-xs text-zinc-400 mr-1">Платформа:</span>
-          <button onclick="setMobileFilterPlatform('all')" class="px-2.5 py-1 rounded text-xs font-medium ${mobileFilterPlatform === 'all' ? 'bg-white text-zinc-950 font-semibold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-darkborder'}">Все</button>
-          <button onclick="setMobileFilterPlatform('flutter')" class="px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 ${mobileFilterPlatform === 'flutter' ? 'bg-white text-zinc-950 font-semibold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-darkborder'}"><i class="fa-brands fa-flutter"></i>Flutter</button>
-          <button onclick="setMobileFilterPlatform('ios')" class="px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 ${mobileFilterPlatform === 'ios' ? 'bg-white text-zinc-950 font-semibold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-darkborder'}"><i class="fa-brands fa-apple"></i>iOS</button>
-          <button onclick="setMobileFilterPlatform('android')" class="px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 ${mobileFilterPlatform === 'android' ? 'bg-white text-zinc-950 font-semibold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-darkborder'}"><i class="fa-brands fa-android"></i>Android</button>
+          <span class="text-xs font-semibold text-zinc-400 mr-1">Приложение:</span>
+          <button onclick="setMobileFilterApp('all')" class="px-2.5 py-1 rounded-lg text-xs font-medium transition ${mobileFilterApp === 'all' ? 'bg-white text-zinc-950 font-semibold shadow-sm' : 'bg-zinc-800 text-zinc-300 hover:text-white border border-darkborder'}">
+            Все (${scanned})
+          </button>
+          ${mobileAppsList.map(app => {
+            const isSel = mobileFilterApp === app.name;
+            const pIcon = app.platform === 'ios' ? 'fa-brands fa-apple' :
+                          app.platform === 'android' ? 'fa-brands fa-android' : 'fa-brands fa-flutter';
+            const countForApp = allResults.filter(r => r.appName === app.name || (r.model && r.model.platform === app.platform)).length;
+            return `
+              <button onclick="setMobileFilterApp('${escAttr(app.name)}')" class="px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${isSel ? 'bg-white text-zinc-950 font-semibold shadow-sm' : 'bg-zinc-800 text-zinc-300 hover:text-white border border-darkborder'}">
+                <i class="${pIcon} text-xs"></i>
+                <span>${escapeHtml(app.name)}</span>
+                ${countForApp ? `<span class="px-1 text-[10px] font-mono opacity-70">(${countForApp})</span>` : ''}
+              </button>
+            `;
+          }).join('')}
         </div>
 
         <div class="relative w-full sm:w-64">
           <input type="text" placeholder="Поиск по имени модели или файлу..."
             value="${escapeHtml(mobileFilterSearch)}"
             oninput="filterMobileSearch(this.value)"
-            class="w-full bg-zinc-900 border border-darkborder rounded-lg pl-8 pr-3 py-1 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500">
+            class="w-full pl-8 pr-3 py-1.5 text-xs">
           <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-zinc-500 text-xs"></i>
         </div>
       </div>
