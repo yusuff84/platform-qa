@@ -439,13 +439,16 @@
 
           <!-- Template Presets Bar -->
           <div class="flex items-center justify-between gap-2 p-2 bg-zinc-900 border border-darkborder rounded-lg text-xs flex-wrap">
-            <span class="text-zinc-400 font-medium flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-zinc-500"></i>Быстрый шаблон:</span>
             <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-zinc-400 font-medium flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-zinc-500"></i>Шаблон:</span>
               <button onclick="insertPresetScenario('order_flow')" type="button" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded transition font-medium text-[11px]">Создание заказа</button>
               <button onclick="insertPresetScenario('client_reg')" type="button" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded transition font-medium text-[11px]">Регистрация клиента</button>
               <button onclick="insertPresetScenario('menu_smoke')" type="button" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded transition font-medium text-[11px]">Меню ресторана</button>
-              <button onclick="insertPresetScenario('rbac_gate')" type="button" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded transition font-medium text-[11px]">RBAC (401 без токена)</button>
+              <button onclick="insertPresetScenario('rbac_gate')" type="button" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded transition font-medium text-[11px]">RBAC (401)</button>
             </div>
+            <button onclick="openAiPromptModal()" type="button" class="px-2.5 py-1 bg-white hover:bg-zinc-200 text-zinc-950 rounded-lg transition font-semibold text-[11px] flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-robot text-xs"></i><span>AI Генерация (Claude / Codex)</span>
+            </button>
           </div>
 
           <div id="scenariosErrorBox" class="hidden px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono whitespace-pre-wrap break-all"></div>
@@ -1654,6 +1657,105 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- AI Prompt & Integration Modal (Claude / Codex / GPT-4) -->
+  <div id="aiPromptModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="if(event.target===this) closeAiPromptModal()">
+    <div class="bg-darkcard border border-darkborder rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl pop-in max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-darkborder pb-3 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
+            <i class="fa-solid fa-robot text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-white">AI Генерация сценариев (Claude / Codex / GPT-4)</h3>
+            <p class="text-[11px] text-zinc-400">Генерация E2E тестов через LLM и прямое API управление</p>
+          </div>
+        </div>
+        <button onclick="closeAiPromptModal()" class="text-zinc-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- Tabs Bar -->
+      <div class="flex items-center gap-1.5 p-1 bg-zinc-900 border border-darkborder rounded-lg text-xs shrink-0">
+        <button onclick="switchAiModalTab('prompt')" id="ai-tab-btn-prompt" type="button" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-zinc-950 shadow-sm transition">
+          <i class="fa-solid fa-file-lines mr-1.5"></i>Системный промпт
+        </button>
+        <button onclick="switchAiModalTab('import')" id="ai-tab-btn-import" type="button" class="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-white transition">
+          <i class="fa-solid fa-download mr-1.5"></i>Импорт ответа ИИ
+        </button>
+        <button onclick="switchAiModalTab('api')" id="ai-tab-btn-api" type="button" class="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-white transition">
+          <i class="fa-solid fa-code mr-1.5"></i>REST API (cURL / CI)
+        </button>
+      </div>
+
+      <!-- Tab 1: Prompt Content -->
+      <div id="ai-tab-view-prompt" class="space-y-3 flex-1 overflow-y-auto text-xs">
+        <p class="text-zinc-300 leading-relaxed">
+          Скопируйте этот выверенный системный промпт и передайте его в диалог с <b>Claude</b>, <b>OpenAI Codex / ChatGPT</b> или <b>Cursor</b> вместе со спецификацией вашего API или описанием бизнес-флоу:
+        </p>
+        <div class="relative">
+          <textarea id="aiPromptSystemText" readonly rows="11" class="w-full font-mono text-[11px] p-3 leading-relaxed select-all" onclick="this.select()"></textarea>
+        </div>
+        <div class="flex justify-end">
+          <button onclick="copyAiSystemPrompt()" class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <i class="fa-solid fa-copy text-xs"></i><span>Скопировать системный промпт для Claude / Codex</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 2: Import Content -->
+      <div id="ai-tab-view-import" class="hidden space-y-3 flex-1 overflow-y-auto text-xs">
+        <p class="text-zinc-300 leading-relaxed">
+          Вставьте сгенерированный ответ нейросети (поддерживаются маркдаун-блоки <code class="text-zinc-200 font-mono">```json ... ```</code> или чистый JSON):
+        </p>
+        <textarea id="aiScenarioInput" rows="11" placeholder="{\n  &quot;key&quot;: &quot;my_claude_scenario&quot;,\n  &quot;title&quot;: &quot;...&quot;,\n  &quot;steps&quot;: [...]\n}" class="w-full font-mono text-[11px] p-3 leading-relaxed"></textarea>
+        <div class="flex justify-end gap-2">
+          <button onclick="closeAiPromptModal()" class="px-3 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition">Отмена</button>
+          <button onclick="importAiGeneratedScenario()" class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <i class="fa-solid fa-diagram-project text-xs"></i><span>Распарсить и вставить в граф</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 3: API & cURL Content -->
+      <div id="ai-tab-view-api" class="hidden space-y-3 flex-1 overflow-y-auto text-xs">
+        <p class="text-zinc-300 leading-relaxed">
+          Вы можете создавать и запускать сценарии напрямую через REST API из Python-скриптов, Cursor, CI/CD пайплайнов или автоматических AI-агентов:
+        </p>
+        <div class="space-y-2">
+          <div class="font-semibold text-zinc-200">1. Получение JSON Schema сценария:</div>
+          <pre class="p-2.5 rounded-lg bg-zinc-950 border border-darkborder font-mono text-[11px] text-zinc-300 select-all">curl http://localhost:18080/api/scenarios/schema</pre>
+
+          <div class="font-semibold text-zinc-200 pt-1">2. Создание или обновление сценария (с флагом ?upsert=true):</div>
+          <pre class="p-2.5 rounded-lg bg-zinc-950 border border-darkborder font-mono text-[11px] text-zinc-300 select-all">curl -X POST "http://localhost:18080/api/scenarios?upsert=true" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "ai_order_test",
+    "title": "AI Тест: Заказ клиента",
+    "tags": ["ai", "smoke"],
+    "steps": [
+      {
+        "id": "step_1",
+        "title": "Регистрация клиента",
+        "type": "http",
+        "role": "client",
+        "method": "POST",
+        "path": "/api/clients/register",
+        "body": { "phoneNumber": "+7999{{uuid}}", "firstName": "Иван" },
+        "extract": { "clientId": "$.data.id" },
+        "expectStatus": 200
+      }
+    ]
+  }'</pre>
+
+          <div class="font-semibold text-zinc-200 pt-1">3. Немедленный запуск сценария:</div>
+          <pre class="p-2.5 rounded-lg bg-zinc-950 border border-darkborder font-mono text-[11px] text-zinc-300 select-all">curl -X POST http://localhost:18080/api/runs \
+  -H "Content-Type: application/json" \
+  -d '{"suite": "ai_order_test"}'</pre>
+        </div>
+      </div>
+
     </div>
   </div>
 

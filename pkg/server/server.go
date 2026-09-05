@@ -291,8 +291,9 @@ func (s *Server) Start(port int) error {
 	mux.HandleFunc("/api/manual/action", s.handleManualAction)
 
 	// User-defined custom scenarios
-	mux.HandleFunc("/api/scenarios", s.handleScenarios)
+	mux.HandleFunc("/api/scenarios/schema", s.handleScenarioSchema)
 	mux.HandleFunc("/api/scenarios/replenish", s.handleScenariosReplenish)
+	mux.HandleFunc("/api/scenarios", s.handleScenarios)
 	mux.HandleFunc("/api/scenarios/", s.handleScenarioByID)
 
 	// OpenAPI/Swagger import & generated smoke scenarios
@@ -914,8 +915,9 @@ func (s *Server) handleScenarios(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
 			return
 		}
-		if s.store.Exists(sc.Key) {
-			http.Error(w, fmt.Sprintf(`{"error":"scenario %q already exists"}`, sc.Key), http.StatusConflict)
+		upsert := r.URL.Query().Get("upsert") == "true"
+		if s.store.Exists(sc.Key) && !upsert {
+			http.Error(w, fmt.Sprintf(`{"error":"scenario %q already exists; use PUT or ?upsert=true to overwrite"}`, sc.Key), http.StatusConflict)
 			return
 		}
 		if err := s.store.Save(&sc); err != nil {
@@ -929,6 +931,11 @@ func (s *Server) handleScenarios(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *Server) handleScenarioSchema(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(scenario.GetJSONSchema())
 }
 
 // handleScenarioByID serves GET/PUT/DELETE /api/scenarios/{key}.

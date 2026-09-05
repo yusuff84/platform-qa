@@ -1304,3 +1304,160 @@ function insertExampleScenario() {
   toastInfo('Пример вставлен в форму — адаптируйте под свой стенд и сохраните.');
   logTerminal('INFO', '[Редактор] Пример вставлен в форму — адаптируйте под свой стенд и сохраните.');
 }
+
+// ==========================================
+// AI SCENARIO GENERATION (Claude / Codex / GPT-4)
+// ==========================================
+
+const AI_SYSTEM_PROMPT = `Ты — ведущий QA Automation инженер платформы Locali E2E Engine.
+Твоя задача — сгенерировать чистый валидный JSON сценарий тестирования для платформы.
+
+Схема JSON сценария:
+{
+  "key": "unique_snake_case_key",     // ^[a-z][a-z0-9_]{2,39}$
+  "title": "Краткое понятное название сценария",
+  "description": "Что именно проверяется в этом сценарии",
+  "tags": ["smoke", "orders", "client"],
+  "vars": {
+    "phone_suffix": "{{uuid}}"         // Спецпеременные: {{uuid}}, {{today}}
+  },
+  "dependsOn": [],                     // Опционально: ключи сютов-зависимостей
+  "steps": [                           // От 1 до 50 шагов, выполняются строго по порядку
+    {
+      "id": "step_id_snake_case",
+      "title": "Название шага",
+      "type": "http",                  // "http" | "delay" | "assert"
+      "role": "client",                // Роль токена: "client" | "rest" | "courier" | "admin" | "none"
+      "method": "POST",                // GET | POST | PUT | PATCH | DELETE
+      "path": "/api/clients/register", // URL путь ручки
+      "body": {                        // JSON тело (внутри строк работает интерполяция {{var}})
+        "phoneNumber": "+7999{{phone_suffix}}",
+        "firstName": "Алиса",
+        "cityKey": "Москва"
+      },
+      "headers": {                     // Опционально: кастомные заголовки
+        "Idempotency-Key": "{{uuid}}"
+      },
+      "extract": {                     // Извлечение переменных из ответа по JSONPath для следующих шагов
+        "clientId": "$.data.id"
+      },
+      "expectStatus": 200,             // 200, "2xx", "4xx", "!5xx" (пусто = любой <400)
+      "asserts": [                     // Проверки тела ответа по JSONPath
+        { "path": "$.data.id", "op": "exists" },
+        { "path": "$.status", "op": "eq", "value": "success" }
+      ]
+    },
+    {
+      "id": "wait_step",
+      "title": "Ожидание обработки",
+      "type": "delay",
+      "ms": 500                        // Пауза в миллисекундах
+    },
+    {
+      "id": "verify_var",
+      "title": "Проверка значения переменной",
+      "type": "assert",
+      "left": "{{clientId}}",          // Левый операнд с переменной
+      "check": {
+        "op": "notEmpty"               // "notEmpty" | "eq" | "neq" | "contains"
+      }
+    }
+  ]
+}
+
+Роли акторов (авторизация Bearer подставляется платформой автоматически):
+- client: клиент приложения доставки
+- rest: ресторан
+- courier: курьер
+- admin: директор / администратор платформы
+- none: запрос без токена авторизации (для проверки 401 Unauthorized)
+
+Отвечай ТОЛЬКО чистым валидным JSON сценария без лишнего вступительного текста.`;
+
+function openAiPromptModal() {
+  const modal = document.getElementById('aiPromptModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    switchAiModalTab('prompt');
+  }
+}
+window.openAiPromptModal = openAiPromptModal;
+
+function closeAiPromptModal() {
+  const modal = document.getElementById('aiPromptModal');
+  if (modal) modal.classList.add('hidden');
+}
+window.closeAiPromptModal = closeAiPromptModal;
+
+function switchAiModalTab(tab) {
+  ['prompt', 'import', 'api'].forEach(t => {
+    const btn = document.getElementById(`ai-tab-btn-${t}`);
+    const view = document.getElementById(`ai-tab-view-${t}`);
+    if (btn) {
+      btn.className = t === tab
+        ? 'px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-zinc-950 shadow-sm transition'
+        : 'px-3 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-white transition';
+    }
+    if (view) view.classList.toggle('hidden', t !== tab);
+  });
+  if (tab === 'prompt') {
+    const ta = document.getElementById('aiPromptSystemText');
+    if (ta) ta.value = AI_SYSTEM_PROMPT;
+  }
+}
+window.switchAiModalTab = switchAiModalTab;
+
+function copyAiSystemPrompt() {
+  navigator.clipboard.writeText(AI_SYSTEM_PROMPT).then(() => {
+    toastSuccess('Системный промпт скопирован! Вставьте его в диалог с Claude или Codex.');
+  });
+}
+window.copyAiSystemPrompt = copyAiSystemPrompt;
+
+function importAiGeneratedScenario() {
+  const inputEl = document.getElementById('aiScenarioInput');
+  const text = (inputEl ? inputEl.value : '').trim();
+  if (!text) {
+    toastError('Вставьте ответ нейросети в поле ввода.');
+    return;
+  }
+
+  try {
+    let cleaned = text;
+    const jsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) cleaned = jsonMatch[1].trim();
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      cleaned = cleaned.substring(start, end + 1);
+    }
+    const parsed = JSON.parse(cleaned);
+    if (!parsed.key) throw new Error('Отсутствует обязательное поле "key"');
+    if (!parsed.steps || !Array.isArray(parsed.steps) || parsed.steps.length === 0) {
+      throw new Error('Отсутствует массив шагов "steps"');
+    }
+
+    editorState = {
+      isNew: true,
+      originalKey: null,
+      key: parsed.key,
+      title: parsed.title || parsed.key,
+      description: parsed.description || '',
+      tagsRaw: (parsed.tags || []).join(', '),
+      dependsOn: [...(parsed.dependsOn || [])],
+      vars: Object.entries(parsed.vars || {}).map(([name, value]) => ({ name, value: String(value) })),
+      steps: parsed.steps.map(normalizeStep)
+    };
+    if (!editorState.vars.length) editorState.vars = [{ name: '', value: '' }];
+
+    setKeyInputLocked(false);
+    hideScenariosError();
+    renderEditorForm();
+    closeAiPromptModal();
+    setScenarioEditorMode('graph');
+    toastSuccess(`Сценарий «${editorState.title}» от AI успешно импортирован в граф!`);
+  } catch (err) {
+    toastError('Ошибка разбора сценария: ' + err.message);
+  }
+}
+window.importAiGeneratedScenario = importAiGeneratedScenario;
