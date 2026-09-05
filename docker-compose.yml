@@ -31,6 +31,8 @@ services:
       - HTTP_DEBUG=${HTTP_DEBUG:-}
     volumes:
       - e2e-data:/app/data
+      - /Users/yusuff84/Documents/all project/flutter-director/locali_director:/locali_director:ro
+      - /Users/yusuff84/Documents/all project/locali-app-backend:/backend:ro
     restart: unless-stopped
     networks:
       - default

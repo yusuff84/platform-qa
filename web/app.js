@@ -63,7 +63,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ---------- Tabs ----------
 
+let currentToolsSubtab = 'history';
+
+function switchToolsSubtab(subId) {
+  currentToolsSubtab = subId || 'history';
+  document.querySelectorAll('.tools-subtab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tools-subview').forEach(v => v.classList.add('hidden'));
+
+  const btn = document.getElementById(`tools-subtab-${currentToolsSubtab}`);
+  const view = document.getElementById(`tools-subview-${currentToolsSubtab}`);
+  if (btn) btn.classList.add('active');
+  if (view) view.classList.remove('hidden');
+
+  if (currentToolsSubtab === 'history') {
+    if (typeof loadHistory === 'function') loadHistory();
+  } else if (currentToolsSubtab === 'vault') {
+    if (typeof loadVault === 'function') loadVault();
+  } else if (currentToolsSubtab === 'spec') {
+    if (typeof loadSpec === 'function') loadSpec();
+  }
+}
+window.switchToolsSubtab = switchToolsSubtab;
+
 function switchTab(tabId) {
+  // If tabId is a sub-tab of tools/management:
+  if (tabId === 'history' || tabId === 'vault' || tabId === 'spec' || tabId === 'statemachine' || tabId === 'playground') {
+    switchTab('tools');
+    switchToolsSubtab(tabId);
+    return;
+  }
+
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-view').forEach(view => view.classList.add('hidden'));
 
@@ -74,18 +103,16 @@ function switchTab(tabId) {
 
   if (tabId === 'overview') {
     refreshOverview();
-  }
-  if (tabId === 'vault') {
-    loadVault();
-  }
-  if (tabId === 'checklists') {
+  } else if (tabId === 'checklists') {
     loadSuites();
-  }
-  if (tabId === 'scenarios') {
+  } else if (tabId === 'scenarios') {
     loadScenarioEditor();
-  }
-  if (tabId === 'tools') {
-    if (typeof loadSpec === 'function') loadSpec(); // состояние «Спецификация API» (js/spec.js)
+  } else if (tabId === 'analysis') {
+    if (typeof loadAnalysis === 'function') loadAnalysis();
+  } else if (tabId === 'mobile') {
+    if (typeof loadMobileContract === 'function') loadMobileContract();
+  } else if (tabId === 'tools') {
+    switchToolsSubtab(currentToolsSubtab || 'history');
   }
 }
 
@@ -160,7 +187,7 @@ function renderHeaderEnv() {
   const vaultBadge = document.getElementById('vaultStandBadge');
   if (vaultBadge) {
     const sn = statusInfo.standName || '';
-    vaultBadge.textContent = '🗄 Хранилище стенда: ' + sn;
+    vaultBadge.textContent = 'Хранилище стенда: ' + sn;
     vaultBadge.classList.toggle('hidden', !sn);
   }
 }
@@ -445,13 +472,13 @@ async function triggerRun(suiteKey, btn) {
 // ==========================================
 
 const CATEGORY_STYLES = {
-  flow:        { ru: 'Сценарий',    badge: 'bg-blue-500/10 text-blue-400 border-blue-500/30',       icon: 'fa-route text-blue-400',              btn: 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/20' },
-  negative:    { ru: 'Негативный',  badge: 'bg-red-500/10 text-red-400 border-red-500/30',          icon: 'fa-triangle-exclamation text-red-400', btn: 'bg-red-600 hover:bg-red-500 shadow-red-600/20' },
-  security:    { ru: 'Безопасность', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/30', icon: 'fa-shield-halved text-purple-400',    btn: 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/20' },
-  reliability: { ru: 'Надёжность',  badge: 'bg-amber-500/10 text-amber-400 border-amber-500/30',    icon: 'fa-rotate-left text-amber-400',        btn: 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/20' },
-  edge:        { ru: 'Граничный',   badge: 'bg-pink-500/10 text-pink-400 border-pink-500/30',       icon: 'fa-dice-d6 text-pink-400',             btn: 'bg-pink-600 hover:bg-pink-500 shadow-pink-600/20' },
-  custom:      { ru: 'Мой сценарий', badge: 'bg-slate-500/15 text-fuchsia-400 border-fuchsia-500/30', icon: 'fa-pen-ruler text-fuchsia-400',      btn: 'bg-fuchsia-600 hover:bg-fuchsia-500 shadow-fuchsia-600/20' },
-  api:         { ru: 'API-ручка',   badge: 'bg-teal-500/10 text-teal-400 border-teal-500/30',       icon: 'fa-plug text-teal-400',                btn: 'bg-teal-600 hover:bg-teal-500 shadow-teal-600/20' },
+  flow:        { ru: 'Сценарий',     badge: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: 'fa-route text-zinc-400',              btn: 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold shadow-sm' },
+  negative:    { ru: 'Негативный',   badge: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: 'fa-triangle-exclamation text-zinc-400', btn: 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold shadow-sm' },
+  security:    { ru: 'Безопасность', badge: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: 'fa-shield-halved text-zinc-400',     btn: 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold shadow-sm' },
+  reliability: { ru: 'Надёжность',   badge: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: 'fa-rotate-left text-zinc-400',         btn: 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold shadow-sm' },
+  edge:        { ru: 'Граничный',    badge: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: 'fa-dice-d6 text-zinc-400',              btn: 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold shadow-sm' },
+  custom:      { ru: 'Мой сценарий', badge: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: 'fa-code text-zinc-400',                  btn: 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold shadow-sm' },
+  api:         { ru: 'API-ручка',    badge: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: 'fa-plug text-zinc-400',                 btn: 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold shadow-sm' },
 };
 
 async function loadSuites() {
@@ -517,14 +544,14 @@ function renderSuites() {
   if (scenarios.length) {
     html += suiteSectionHtml(
       'Сценарии',
-      'fa-route text-blue-400',
+      'fa-route text-zinc-400',
       'Сквозные флоу: каждый шаг зависит от предыдущего, прогон останавливается на первом провале.',
       scenarios);
   }
   if (apiSuites.length) {
     html += suiteSectionHtml(
       'API-проверки ручек',
-      'fa-plug text-teal-400',
+      'fa-plug text-zinc-400',
       'Контракты отдельных ручек. Проверки независимы: одна сломанная ручка не скрывает состояние остальных.',
       apiSuites);
   }
@@ -562,56 +589,56 @@ function findSuiteCard(suiteKey) {
 function suiteCardHtml(suite) {
   const st = suiteStates[suite.key] || { selected: false, running: false, checks: {} };
   const cat = CATEGORY_STYLES[suite.category] || CATEGORY_STYLES.flow;
-  const runningClass = st.running ? ' suite-card-running border-emerald-500/70 ring-1 ring-emerald-500/40' : '';
+  const runningClass = st.running ? ' suite-card-running border-zinc-500 ring-1 ring-zinc-500/40' : '';
 
   const itemsHtml = (suite.checks || []).map(c => checkItemHtml(suite.key, c.id, c.title, st.checks[c.id])).join('');
 
   const tagsHtml = (suite.tags || []).map(t =>
-    `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] font-mono text-slate-400 border border-darkborder">${escapeHtml(t)}</span>`
+    `<span class="px-1.5 py-0.5 rounded bg-zinc-900 text-[9px] font-mono text-zinc-400 border border-darkborder">${escapeHtml(t)}</span>`
   ).join(' ');
 
   const resultBadgeHtml = st.lastResult === null || st.running
     ? (st.running
-        ? '<span class="suite-status-badge px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 animate-pulse">RUNNING</span>'
+        ? '<span class="suite-status-badge px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-200 border border-zinc-700 animate-pulse">RUNNING</span>'
         : '')
     : (st.lastResult
-        ? '<span class="suite-status-badge px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">PASSED</span>'
-        : '<span class="suite-status-badge px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">FAILED</span>');
+        ? '<span class="suite-status-badge px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-100 border border-zinc-600">PASSED</span>'
+        : '<span class="suite-status-badge px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-red-950/40 text-red-300 border border-red-800/40">FAILED</span>');
 
   return `
     <div class="suite-card${runningClass} bg-darkcard border border-darkborder rounded-xl p-4 flex flex-col space-y-3 transition" data-suite-card="${escAttr(suite.key)}">
       <div class="flex items-start justify-between gap-2">
         <div class="flex items-center space-x-2 flex-wrap gap-y-1">
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${cat.badge}" title="Категория: ${escapeHtml(cat.ru)}">${escapeHtml(cat.ru)}</span>
+          <span class="text-[10px] font-medium px-2 py-0.5 rounded border ${cat.badge}" title="Категория: ${escapeHtml(cat.ru)}">${escapeHtml(cat.ru)}</span>
           ${tagsHtml}
         </div>
         <i class="fa-solid ${cat.icon} shrink-0" title="${escapeHtml(cat.ru)}"></i>
       </div>
 
       <div>
-        <h3 class="font-bold text-white text-sm">${escapeHtml(suite.title)}</h3>
-        <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">${escapeHtml(suite.description)}</p>
+        <h3 class="font-semibold text-white text-sm">${escapeHtml(suite.title)}</h3>
+        <p class="text-[11px] text-zinc-400 mt-1 leading-relaxed">${escapeHtml(suite.description)}</p>
       </div>
 
       <div class="space-y-1.5 flex-1">
-        ${(suite.checks || []).length ? itemsHtml : '<div class="text-[11px] text-slate-500 italic">Чеклист пуст</div>'}
+        ${(suite.checks || []).length ? itemsHtml : '<div class="text-[11px] text-zinc-500 italic">Чеклист пуст</div>'}
       </div>
 
       <div data-suite-progress class="${st.running ? '' : 'hidden'}"></div>
       <div data-suite-summary class="space-y-1"></div>
 
-      <div class="text-[9px] font-mono text-slate-500 min-h-[14px] truncate" data-last-run-badge="${escAttr(suite.key)}"></div>
+      <div class="text-[9px] font-mono text-zinc-500 min-h-[14px] truncate" data-last-run-badge="${escAttr(suite.key)}"></div>
 
       <div class="border-t border-darkborder pt-3 flex items-center justify-between gap-2">
         <label class="flex items-center space-x-2 cursor-pointer select-none" title="Добавить сьют в батч-запуск">
-          <input type="checkbox" ${st.selected ? 'checked' : ''} onchange="toggleBatch('${escAttr(suite.key)}', this)" class="rounded border-darkborder bg-slate-900 text-green-500 focus:ring-green-500/50">
-          <span class="text-[11px] text-slate-300">в батч</span>
+          <input type="checkbox" ${st.selected ? 'checked' : ''} onchange="toggleBatch('${escAttr(suite.key)}', this)" class="rounded border-darkborder bg-zinc-900 text-zinc-200">
+          <span class="text-[11px] text-zinc-300">в батч</span>
         </label>
         <div class="flex items-center gap-1.5 min-w-0">
           ${customActionsHtml(suite)}
           <button onclick="runSuiteFromChecklist('${escAttr(suite.key)}')" data-run-btn ${st.running ? 'disabled' : ''}
-            class="px-3 py-1.5 text-white text-[11px] font-semibold rounded-lg transition flex items-center space-x-1.5 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed shrink-0 ${cat.btn}">
-            <i class="fa-solid fa-play"></i>
+            class="px-3 py-1.5 text-zinc-950 bg-white hover:bg-zinc-200 text-[11px] font-semibold rounded-lg transition flex items-center space-x-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0">
+            <i class="fa-solid fa-play text-[10px]"></i>
             <span>${st.running ? 'Идёт прогон...' : 'Запустить'}</span>
           </button>
           ${resultBadgeHtml}
@@ -625,20 +652,20 @@ function checkItemHtml(suiteKey, checkId, title, state) {
   const s = state || { status: 'PENDING', message: '' };
   let msgHtml = '';
   if (s.status === 'FAILED' && s.message) {
-    msgHtml = `<div class="check-msg pl-7 text-[10px] text-red-400 bg-red-500/5 border-l-2 border-red-500/50 rounded-r py-0.5 pr-1 break-all">${escapeHtml(s.message)}</div>`;
+    msgHtml = `<div class="check-msg pl-7 text-[10px] text-red-300 bg-red-950/20 border-l-2 border-red-500/50 rounded-r py-0.5 pr-1 break-all">${escapeHtml(s.message)}</div>`;
   } else if (s.status === 'SKIPPED' && s.message) {
-    msgHtml = `<div class="check-msg pl-7 text-[10px] text-slate-500 bg-slate-500/5 border-l-2 border-slate-500/40 rounded-r py-0.5 pr-1 break-all">${escapeHtml(s.message)}</div>`;
+    msgHtml = `<div class="check-msg pl-7 text-[10px] text-zinc-500 bg-zinc-900/40 border-l-2 border-zinc-600 rounded-r py-0.5 pr-1 break-all">${escapeHtml(s.message)}</div>`;
   }
   return `
     <div class="check-item flex items-start justify-between gap-2" data-check-item data-check-suite="${escAttr(suiteKey)}" data-check-id="${escAttr(checkId)}">
       <div class="flex-1 min-w-0 space-y-1">
         <div class="flex items-center space-x-2 min-w-0">
           <span class="check-icon w-4 text-center shrink-0">${checkIconHtml(s.status)}</span>
-          <span class="text-[11px] text-slate-300 truncate" title="${escAttr(title)}">${escapeHtml(title)}</span>
+          <span class="text-[11px] text-zinc-300 truncate" title="${escAttr(title)}">${escapeHtml(title)}</span>
         </div>
         ${msgHtml}
       </div>
-      ${s.durationMs !== undefined && s.status !== 'RUNNING' && s.status !== 'PENDING' ? `<span class="text-[9px] font-mono text-slate-500 shrink-0 mt-0.5" title="Длительность проверки">${fmtDuration(s.durationMs)}</span>` : ''}
+      ${s.durationMs !== undefined && s.status !== 'RUNNING' && s.status !== 'PENDING' ? `<span class="text-[9px] font-mono text-zinc-500 shrink-0 mt-0.5" title="Длительность проверки">${fmtDuration(s.durationMs)}</span>` : ''}
     </div>
   `;
 }
@@ -646,15 +673,15 @@ function checkItemHtml(suiteKey, checkId, title, state) {
 function checkIconHtml(status) {
   switch (status) {
     case 'RUNNING':
-      return '<i class="fa-solid fa-circle-notch fa-spin text-blue-400 text-xs"></i>';
+      return '<i class="fa-solid fa-circle-notch fa-spin text-zinc-200 text-xs"></i>';
     case 'PASSED':
-      return '<i class="fa-solid fa-check-circle text-green-400 text-xs"></i>';
+      return '<i class="fa-solid fa-circle-check text-emerald-400 text-xs"></i>';
     case 'FAILED':
-      return '<i class="fa-solid fa-times-circle text-red-400 text-xs"></i>';
+      return '<i class="fa-solid fa-circle-xmark text-red-400 text-xs"></i>';
     case 'SKIPPED':
-      return '<i class="fa-solid fa-minus text-yellow-400 text-xs"></i>';
+      return '<i class="fa-solid fa-minus text-zinc-500 text-xs"></i>';
     default:
-      return '<i class="fa-regular fa-circle text-slate-500 text-xs"></i>';
+      return '<i class="fa-regular fa-circle text-zinc-600 text-xs"></i>';
   }
 }
 
@@ -768,10 +795,10 @@ function startSuiteCard(suiteKey) {
 
   const card = findSuiteCard(suiteKey);
   if (card) {
-    card.classList.add('suite-card-running', 'border-emerald-500/70', 'ring-1', 'ring-emerald-500/40');
+    card.classList.add('suite-card-running', 'border-zinc-500', 'ring-1', 'ring-zinc-500/40');
     const badge = card.querySelector('.suite-status-badge');
     if (badge) {
-      badge.outerHTML = '<span class="suite-status-badge px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 animate-pulse">RUNNING</span>';
+      badge.outerHTML = '<span class="suite-status-badge px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-200 border border-zinc-700 animate-pulse">RUNNING</span>';
     }
     const btn = card.querySelector('button[data-run-btn]');
     if (btn) {
@@ -791,13 +818,13 @@ function startSuiteCard(suiteKey) {
     if (prog) {
       prog.classList.remove('hidden');
       prog.innerHTML = `
-        <div class="rounded-lg bg-slate-950/70 border border-emerald-500/20 px-2.5 py-2 space-y-1.5">
+        <div class="rounded-lg bg-zinc-950 border border-zinc-700 px-2.5 py-2 space-y-1.5">
           <div class="flex items-center justify-between gap-2 text-[10px]">
-            <span class="text-emerald-300 font-semibold"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Подготовка запуска…</span>
-            <span class="font-mono text-slate-500 shrink-0">0%</span>
+            <span class="text-zinc-200 font-medium"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Подготовка запуска…</span>
+            <span class="font-mono text-zinc-400 shrink-0">0%</span>
           </div>
-          <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-emerald-500 to-green-400 rounded-full transition-all duration-300" style="width:0%"></div>
+          <div class="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div class="h-full bg-white rounded-full transition-all duration-300" style="width:0%"></div>
           </div>
         </div>`;
     }
@@ -829,8 +856,8 @@ function buildSummaryBanner(st, success, ev) {
   html += '<span class="text-[10px] font-mono text-slate-500">' + (dur ? '<i class="fa-regular fa-clock mr-1"></i>' + dur : '') + '</span>';
   if (runId) {
     html += '<span class="flex items-center gap-1.5">' +
-      '<button onclick="openRunDetails(\'' + escAttr(runId) + '\')" title="Открыть отчёт по этому прогону" class="px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition"><i class="fa-solid fa-file-lines mr-1"></i>Отчёт</button>' +
-      '<button onclick="openLogsFiltered(\'' + escAttr(runId) + '\')" title="Все логи этого прогона" class="px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-darkborder rounded-lg transition"><i class="fa-solid fa-scroll mr-1"></i>Логи прогона</button>' +
+      '<button onclick="openRunDetails(\'' + escAttr(runId) + '\')" title="Открыть отчёт по этому прогону" class="px-2 py-1 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition"><i class="fa-solid fa-file-lines mr-1"></i>Отчёт</button>' +
+      '<button onclick="openLogsFiltered(\'' + escAttr(runId) + '\')" title="Все логи этого прогона" class="px-2 py-1 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition"><i class="fa-solid fa-scroll mr-1"></i>Логи прогона</button>' +
       '</span>';
   }
   html += '</div>';
@@ -1071,9 +1098,9 @@ function humanSuiteTitle(suiteKey, fallback) {
 }
 
 function runStatusIcon(status) {
-  if (status === 'PASSED') return 'fa-circle-check text-green-400';
+  if (status === 'PASSED') return 'fa-circle-check text-emerald-400';
   if (status === 'FAILED') return 'fa-circle-xmark text-red-400';
-  return 'fa-circle-notch fa-spin text-blue-400';
+  return 'fa-circle-notch fa-spin text-zinc-400';
 }
 
 function updateOverviewRecent() {
@@ -1137,7 +1164,7 @@ async function openRegressionModal(markAll) {
   if (modal) modal.classList.remove('hidden');
 }
 
-// Кнопка «🚀 Регресс всех» на чеклистах: выделить все сюты + та же модалка
+// Кнопка «Регресс всех» на чеклистах: выделить все сюты + та же модалка
 function openRegressionAll() {
   openRegressionModal(true);
 }
@@ -1182,17 +1209,17 @@ function renderRegressionStands() {
       ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/30 shrink-0">МОК</span>'
       : '';
     const currentBadge = active
-      ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-green-500/15 text-green-400 border-green-500/30 shrink-0">текущий</span>'
+      ? '<span class="text-[9px] font-mono font-medium px-1.5 py-0.5 rounded border bg-zinc-800 text-zinc-300 border-zinc-700 shrink-0">текущий</span>'
       : '';
     return `
-      <label class="flex items-start gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition ${active ? 'border-green-500/60 bg-green-500/10 hover:border-green-400' : 'border-darkborder bg-slate-900/60 hover:border-slate-500'}">
-        <input type="radio" name="regStand" value="${escAttr(s.id)}" ${active ? 'checked' : ''} onchange="onRegressionStandChange()" class="mt-0.5 shrink-0 ${s.isMock ? 'accent-amber-500' : 'accent-fuchsia-500'}">
+      <label class="flex items-start gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition ${active ? 'border-zinc-500 bg-zinc-800' : 'border-darkborder bg-zinc-900/60 hover:border-zinc-700'}">
+        <input type="radio" name="regStand" value="${escAttr(s.id)}" ${active ? 'checked' : ''} onchange="onRegressionStandChange()" class="mt-0.5 shrink-0 accent-zinc-400">
         <span class="flex-1 min-w-0">
           <span class="flex items-center gap-1.5 flex-wrap">
-            <span class="font-bold truncate ${active ? 'text-green-400' : 'text-white'}">${escapeHtml(s.name)}</span>
+            <span class="font-semibold truncate text-white">${escapeHtml(s.name)}</span>
             ${mockBadge}${currentBadge}
           </span>
-          <span class="block font-mono text-[10px] text-slate-500 truncate">${escapeHtml(s.baseURL || '—')}</span>
+          <span class="block font-mono text-[10px] text-zinc-500 truncate">${escapeHtml(s.baseURL || '—')}</span>
         </span>
       </label>`;
   }).join('');
@@ -1225,17 +1252,17 @@ function renderRegressionSuites() {
   if (!box) return;
 
   if (!suitesRegistry.length) {
-    box.innerHTML = '<div class="sm:col-span-2 py-3 text-center text-slate-500 italic border border-dashed border-darkborder rounded-lg">Реестр сютов пуст или недоступен — обновите вкладку «Тесты & Чеклисты»</div>';
+    box.innerHTML = '<div class="sm:col-span-2 py-3 text-center text-zinc-500 italic border border-dashed border-darkborder rounded-lg">Реестр сютов пуст или недоступен — обновите вкладку «Тесты & Чеклисты»</div>';
     return;
   }
 
   box.innerHTML = suitesRegistry.map(s => {
     const cat = CATEGORY_STYLES[s.category] || CATEGORY_STYLES.flow;
     return `
-      <label class="flex items-center gap-2 rounded-lg border border-darkborder bg-slate-900/60 hover:border-slate-500 px-2.5 py-1.5 cursor-pointer transition min-w-0">
-        <input type="checkbox" value="${escAttr(s.key)}" checked onchange="updateRegressionCounter()" class="rounded border-darkborder bg-slate-900 accent-fuchsia-500 shrink-0">
-        <span class="flex-1 min-w-0 truncate text-slate-200" title="${escAttr(s.title)}">${escapeHtml(s.title)}</span>
-        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${cat.badge}">${escapeHtml(cat.ru)}</span>
+      <label class="flex items-center gap-2 rounded-lg border border-darkborder bg-zinc-900/60 hover:border-zinc-700 px-2.5 py-1.5 cursor-pointer transition min-w-0">
+        <input type="checkbox" value="${escAttr(s.key)}" checked onchange="updateRegressionCounter()" class="rounded border-darkborder bg-zinc-900 accent-zinc-400 shrink-0">
+        <span class="flex-1 min-w-0 truncate text-zinc-200" title="${escAttr(s.title)}">${escapeHtml(s.title)}</span>
+        <span class="text-[9px] font-mono font-medium px-1.5 py-0.5 rounded border shrink-0 ${cat.badge}">${escapeHtml(cat.ru)}</span>
       </label>`;
   }).join('');
 }
@@ -1375,25 +1402,25 @@ function updateRegressionBanner() {
   let cls, icon, title, detail;
   if (finished) {
     cls = allOk
-      ? 'border-green-500/40 bg-green-500/10 text-green-300'
-      : 'border-red-500/40 bg-red-500/10 text-red-300';
-    icon = allOk ? 'fa-circle-check text-green-400' : 'fa-circle-xmark text-red-400';
+      ? 'border-zinc-700 bg-zinc-900 text-zinc-100'
+      : 'border-red-900/50 bg-red-950/20 text-red-300';
+    icon = allOk ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-circle-xmark text-red-400';
     title = allOk ? 'Регресс пройден' : 'Регресс завершён с провалами';
-    detail = '✅ ' + passed + ' / ' + total + (failed ? ' · ❌ ' + failed : '');
+    detail = passed + ' / ' + total + ' пройдено' + (failed ? ' · ' + failed + ' упало' : '');
   } else {
-    cls = 'border-blue-500/40 bg-blue-500/10 text-blue-200';
-    icon = 'fa-solid fa-spinner fa-spin text-blue-400';
+    cls = 'border-zinc-700 bg-zinc-900 text-zinc-200';
+    icon = 'fa-solid fa-circle-notch fa-spin text-zinc-400';
     title = 'Регресс выполняется';
     detail = 'готово ' + (passed + failed) + ' из ' + total +
-      (passed ? ' · ✅ ' + passed : '') + (failed ? ' · ❌ ' + failed : '') + ' · ⏳ ' + pending;
+      (passed ? ' · ' + passed + ' пройдено' : '') + (failed ? ' · ' + failed + ' упало' : '') + ' · в очереди ' + pending;
   }
 
   box.innerHTML =
     '<div class="rounded-xl border ' + cls + ' px-4 py-3 flex items-center gap-3 flex-wrap">' +
       '<i class="' + icon + ' shrink-0"></i>' +
-      '<span class="font-bold text-xs shrink-0">' + escapeHtml(title) + '</span>' +
-      '<span class="font-mono text-xs font-semibold shrink-0">Регресс: ' + escapeHtml(detail) + '</span>' +
-      '<button onclick="switchTab(\'checklists\')" class="ml-auto px-3 py-1.5 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition shrink-0">' +
+      '<span class="font-semibold text-xs shrink-0">' + escapeHtml(title) + '</span>' +
+      '<span class="font-mono text-xs font-medium shrink-0">(' + escapeHtml(detail) + ')</span>' +
+      '<button onclick="switchTab(\'checklists\')" class="ml-auto px-3 py-1.5 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition shrink-0">' +
         '<i class="fa-solid fa-list-check mr-1"></i>К карточкам</button>' +
     '</div>';
   box.classList.remove('hidden');
@@ -1824,32 +1851,32 @@ async function loadHistory() {
 
     tbody.innerHTML = historyCache.map(r => {
       const statusBadge = r.status === 'PASSED'
-        ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-400 border border-green-500/20"><i class="fa-solid fa-circle-check mr-1"></i>PASSED</span>'
+        ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-100 border border-zinc-700"><i class="fa-solid fa-circle-check mr-1 text-emerald-400"></i>PASSED</span>'
         : (r.status === 'FAILED'
-            ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20"><i class="fa-solid fa-circle-xmark mr-1"></i>FAILED</span>'
-            : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-1"></i>RUNNING</span>');
+            ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-red-950/40 text-red-300 border border-red-800/40"><i class="fa-solid fa-circle-xmark mr-1 text-red-400"></i>FAILED</span>'
+            : '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-1 text-zinc-400"></i>RUNNING</span>');
 
       const checksCell = (r.passedChecks !== undefined && r.totalChecks)
-        ? `<span class="${r.failedChecks ? 'text-red-400' : 'text-green-400'} font-bold">${r.passedChecks}</span><span class="text-slate-500">/${r.totalChecks}</span>`
-        : '<span class="text-slate-500">—</span>';
+        ? `<span class="${r.failedChecks ? 'text-red-400' : 'text-zinc-100'} font-semibold">${r.passedChecks}</span><span class="text-zinc-500">/${r.totalChecks}</span>`
+        : '<span class="text-zinc-500">—</span>';
 
       const stepsCell = (r.passedSteps !== undefined && r.totalSteps)
-        ? `${r.passedSteps}<span class="text-slate-500">/${r.totalSteps}</span>`
+        ? `${r.passedSteps}<span class="text-zinc-500">/${r.totalSteps}</span>`
         : (r.passedSteps !== undefined ? r.passedSteps : '—');
 
       const runId = escAttr(r.id || '');
 
       // Триггер запуска: регресс после релиза / webhook (задел на будущее)
       const triggerBadge = r.trigger === 'regression'
-        ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/30 whitespace-nowrap" title="Запущено как регресс после релиза">🚀 Регресс</span>'
+        ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700 whitespace-nowrap" title="Запущено как регресс после релиза"><i class="fa-solid fa-play text-[8px] mr-1"></i>Регресс</span>'
         : (r.trigger === 'webhook'
-            ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 whitespace-nowrap" title="Запущено вебхуком">🔗 Webhook</span>'
+            ? '<span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700 whitespace-nowrap" title="Запущено вебхуком"><i class="fa-solid fa-link text-[8px] mr-1"></i>Webhook</span>'
             : '');
 
-      return `<tr onclick="openRunDetails('${runId}')" class="cursor-pointer hover:bg-slate-800/50 transition">
-        <td class="p-3 font-mono text-[11px] text-slate-400" title="${runId}">${runId.substring(0, 8)}...</td>
+      return `<tr onclick="openRunDetails('${runId}')" class="cursor-pointer hover:bg-zinc-800/40 transition">
+        <td class="p-3 font-mono text-[11px] text-zinc-400" title="${runId}">${runId.substring(0, 8)}...</td>
         <td class="p-3 font-semibold text-white"><span class="flex items-center gap-1.5 min-w-0"><span class="truncate">${escapeHtml(humanSuiteTitle(r.suiteKey, r.suiteName))}</span>${triggerBadge}</span></td>
-        <td class="p-3 font-mono text-[11px] text-cyan-400">${escapeHtml(r.suiteKey || '—')}</td>
+        <td class="p-3 font-mono text-[11px] text-zinc-300">${escapeHtml(r.suiteKey || '—')}</td>
         <td class="p-3">${statusBadge}</td>
         <td class="p-3 font-mono">${checksCell}</td>
         <td class="p-3 font-mono">${stepsCell}</td>
@@ -1946,11 +1973,11 @@ function getCheckTitle(suiteKey, checkId) {
 
 function resultStatusBadge(status) {
   switch (status) {
-    case 'PASSED':  return '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-400 border border-green-500/20">PASSED</span>';
-    case 'FAILED':  return '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">FAILED</span>';
-    case 'SKIPPED': return '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">SKIPPED</span>';
-    case 'RUNNING': return '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse">RUNNING</span>';
-    default:        return `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">${escapeHtml(status || '—')}</span>`;
+    case 'PASSED':  return '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-100 border border-zinc-700">PASSED</span>';
+    case 'FAILED':  return '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-red-950/40 text-red-300 border border-red-800/40">FAILED</span>';
+    case 'SKIPPED': return '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">SKIPPED</span>';
+    case 'RUNNING': return '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-200 border border-zinc-700 animate-pulse">RUNNING</span>';
+    default:        return `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-400">${escapeHtml(status || '—')}</span>`;
   }
 }
 
@@ -1994,24 +2021,24 @@ function httpDetailsForCheck(run, checkId) {
 function httpStatusClass(code) {
   if (code >= 500) return 'text-red-400 font-bold';
   if (code >= 400) return 'text-amber-400 font-bold';
-  if (code >= 300) return 'text-cyan-300 font-bold';
-  if (code >= 200) return 'text-green-400 font-bold';
-  return 'text-slate-400';
+  if (code >= 300) return 'text-zinc-300 font-bold';
+  if (code >= 200) return 'text-zinc-100 font-bold';
+  return 'text-zinc-400';
 }
 
 function tlDotIcon(status) {
   switch (status) {
-    case 'PASSED':  return '<i class="fa-solid fa-check text-green-400"></i>';
+    case 'PASSED':  return '<i class="fa-solid fa-check text-emerald-400"></i>';
     case 'FAILED':  return '<i class="fa-solid fa-xmark text-red-400"></i>';
-    case 'SKIPPED': return '<i class="fa-solid fa-minus text-yellow-400"></i>';
-    case 'RUNNING': return '<i class="fa-solid fa-circle-notch fa-spin text-blue-400"></i>';
-    default:        return '<i class="fa-regular fa-circle text-slate-500"></i>';
+    case 'SKIPPED': return '<i class="fa-solid fa-minus text-zinc-500"></i>';
+    case 'RUNNING': return '<i class="fa-solid fa-circle-notch fa-spin text-zinc-400"></i>';
+    default:        return '<i class="fa-regular fa-circle text-zinc-600"></i>';
   }
 }
 
 function renderRunDetails(run) {
   const title = document.getElementById('runDetailsTitle');
-  title.innerHTML = `<i class="fa-solid fa-magnifying-glass-chart text-blue-400"></i><span>Отчёт: ${escapeHtml(humanSuiteTitle(run.suiteKey, run.suiteName || run.id))}</span>`;
+  title.innerHTML = `<i class="fa-solid fa-chart-line text-zinc-400"></i><span>Отчёт: ${escapeHtml(humanSuiteTitle(run.suiteKey, run.suiteName || run.id))}</span>`;
 
   const exportJunitBtn = document.getElementById('runExportJunitBtn');
   const exportAllureBtn = document.getElementById('runExportAllureBtn');
@@ -2021,10 +2048,10 @@ function renderRunDetails(run) {
 
   // --- Шапка ---
   const statusBanner = run.status === 'PASSED'
-    ? '<span class="px-3 py-1 rounded-lg text-xs font-bold bg-green-500/15 text-green-400 border border-green-500/40"><i class="fa-solid fa-circle-check mr-1.5"></i>Пройден</span>'
+    ? '<span class="px-3 py-1 rounded-lg text-xs font-mono font-medium bg-zinc-800 text-zinc-100 border border-zinc-600"><i class="fa-solid fa-circle-check mr-1.5 text-emerald-400"></i>Пройден</span>'
     : (run.status === 'FAILED'
-        ? '<span class="px-3 py-1 rounded-lg text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/40"><i class="fa-solid fa-circle-xmark mr-1.5"></i>Провален</span>'
-        : '<span class="px-3 py-1 rounded-lg text-xs font-bold bg-blue-500/15 text-blue-400 border border-blue-500/40 animate-pulse"><i class="fa-solid fa-hourglass-half mr-1.5"></i>Выполняется</span>');
+        ? '<span class="px-3 py-1 rounded-lg text-xs font-mono font-medium bg-red-950/40 text-red-300 border border-red-800/40"><i class="fa-solid fa-circle-xmark mr-1.5 text-red-400"></i>Провален</span>'
+        : '<span class="px-3 py-1 rounded-lg text-xs font-mono font-medium bg-zinc-800 text-zinc-200 border border-zinc-700 animate-pulse"><i class="fa-solid fa-hourglass-half mr-1.5 text-zinc-400"></i>Выполняется</span>');
 
   const results = run.results || {};
   const entries = Object.entries(results);
@@ -2089,7 +2116,7 @@ function renderRunDetails(run) {
       body = (res && res.message)
         ? `<div class="mt-0.5 text-[10px] text-slate-500 italic break-all">${escapeHtml(res.message)}</div>` : '';
     } else if (status === 'RUNNING') {
-      body = '<div class="mt-0.5 text-[10px] text-blue-300 italic">шаг выполняется…</div>';
+      body = '<div class="mt-0.5 text-[10px] text-zinc-400 italic">шаг выполняется…</div>';
     }
 
     return `<div class="tl-item">
@@ -2165,21 +2192,21 @@ function renderRunDetails(run) {
           <div class="text-slate-200 font-semibold truncate" title="${escAttr(run.suiteKey || '')}">${escapeHtml(run.suiteKey || '—')}</div>
         </div>
         <div class="stat-card !p-3">
-          <div class="text-[9px] uppercase tracking-wider text-slate-500 font-bold mb-1">Чеки ✓/✗</div>
-          <div class="font-mono font-semibold"><span class="text-green-400">${passedCount}</span> / <span class="text-red-400">${failedCount}</span></div>
+          <div class="text-[9px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Чеки (OK / Сбой)</div>
+          <div class="font-mono font-semibold"><span class="text-zinc-100">${passedCount}</span> / <span class="${failedCount ? 'text-red-400' : 'text-zinc-500'}">${failedCount}</span></div>
         </div>
       </div>
 
       ${errorBlock}
 
       <div>
-        <h4 class="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-3"><i class="fa-solid fa-list-ol mr-1 text-emerald-400"></i>Ход выполнения (${orderedIds.length} ${pluralRu(orderedIds.length, ['шаг', 'шага', 'шагов'])})</h4>
-        <div class="space-y-0">${orderedIds.length ? timelineHtml : '<div class="text-slate-500 italic text-sm">Результаты проверок отсутствуют.</div>'}</div>
+        <h4 class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider mb-3"><i class="fa-solid fa-list-ol mr-1 text-zinc-400"></i>Ход выполнения (${orderedIds.length} ${pluralRu(orderedIds.length, ['шаг', 'шага', 'шагов'])})</h4>
+        <div class="space-y-0">${orderedIds.length ? timelineHtml : '<div class="text-zinc-500 italic text-sm">Результаты проверок отсутствуют.</div>'}</div>
       </div>
 
-      <details class="border border-darkborder rounded-lg bg-slate-900/50 text-xs">
-        <summary class="px-3 py-2 cursor-pointer select-none font-semibold text-slate-300 flex items-center gap-2">
-          <i class="fa-solid fa-code text-cyan-400"></i>
+      <details class="border border-darkborder rounded-lg bg-zinc-900/50 text-xs">
+        <summary class="px-3 py-2 cursor-pointer select-none font-semibold text-zinc-300 flex items-center gap-2">
+          <i class="fa-solid fa-code text-zinc-400"></i>
           <span>Технические детали (сырой лог${events.length ? ', ' + events.length + ' событий' : ''})</span>
           <i class="fa-solid fa-chevron-down chev ml-auto text-[10px] text-slate-500"></i>
         </summary>
@@ -2406,7 +2433,7 @@ function updateFixtureAccountHint(role) {
   const profile = ((tokenVault && tokenVault[field.pool]) || []).find(p => p.id === el.value);
   const entityId = profile && profile.payload ? (profile.payload.user_id || profile.payload.admin_id) : null;
   hintEl.textContent = entityId ? `id: ${entityId}` : 'фиксированный аккаунт';
-  hintEl.className = 'text-[10px] text-indigo-400 font-mono truncate';
+  hintEl.className = 'text-[10px] text-zinc-400 font-mono truncate';
 }
 
 async function saveFixtureAccounts(btn) {

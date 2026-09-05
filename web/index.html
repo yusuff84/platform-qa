@@ -7,15 +7,12 @@
   <script>
     (function () {
       try {
-        var t = localStorage.getItem('e2e-theme');
-        if (t !== 'dark' && t !== 'light') {
-          t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
-        }
+        var t = localStorage.getItem('e2e-theme') || 'light';
         document.documentElement.classList.remove('dark', 'light');
         document.documentElement.classList.add(t);
         document.documentElement.style.colorScheme = t;
       } catch (e) {
-        document.documentElement.classList.add('dark');
+        document.documentElement.classList.add('light');
       }
     })();
   </script>
@@ -29,52 +26,52 @@
       theme: {
         extend: {
           colors: {
-            brand: { 50: '#f0fdf4', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' },
-            darkbg: '#0f172a',
-            darkcard: '#1e293b',
-            darkborder: '#334155'
+            brand: { 50: '#fafafa', 400: '#a1a1aa', 500: '#71717a', 600: '#52525b', 700: '#3f3f46' },
+            darkbg: 'var(--panel-bg)',
+            darkcard: 'var(--card-bg)',
+            darkborder: 'var(--border-color)'
           }
         }
       }
     }
   </script>
 </head>
-<body class="bg-darkbg text-slate-100 min-h-screen flex flex-col font-sans antialiased">
+<body class="bg-darkbg text-zinc-100 min-h-screen flex flex-col font-sans antialiased">
 
   <!-- ======================= HEADER ======================= -->
-  <header class="border-b border-darkborder bg-darkcard/80 backdrop-blur sticky top-0 z-40">
+  <header class="border-b border-darkborder bg-darkcard/90 backdrop-blur sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
 
       <!-- Left: logo + environment indicator -->
       <div class="flex items-center space-x-3 min-w-0">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-green-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-green-500/20 shrink-0">
-          <i class="fa-solid fa-bolt text-darkbg text-xl font-bold"></i>
+        <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-100 shadow-sm shrink-0">
+          <i class="fa-solid fa-bolt text-sm"></i>
         </div>
         <div class="min-w-0">
           <div class="flex items-center space-x-2">
-            <h1 class="text-lg font-bold tracking-tight text-white whitespace-nowrap">Locali E2E</h1>
-            <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-500/10 text-green-400 border border-green-500/20 hidden lg:inline">PLATFORM v2.0</span>
+            <h1 class="text-base font-semibold tracking-tight text-white whitespace-nowrap">Locali E2E</h1>
+            <span class="px-2 py-0.5 text-[10px] font-mono font-medium rounded bg-zinc-900 text-zinc-400 border border-zinc-800 hidden lg:inline">PLATFORM v2.1</span>
           </div>
-          <p class="text-xs text-slate-400 truncate">QA Automation &amp; Multi-Token Vault</p>
+          <p class="text-xs text-zinc-400 truncate">QA Automation &amp; Multi-Token Vault</p>
         </div>
 
         <!-- Stand indicator + quick switcher: MOCK / REAL (клик — дропдаун стендов) -->
         <div id="standsDropdownWrap" class="relative hidden md:block ml-4">
           <button onclick="toggleStandsDropdown()" id="standsDropdownBtn" title="Активный стенд. Клик — список стендов"
-            class="flex items-center gap-2 bg-slate-800/80 border border-darkborder hover:border-slate-500 px-3 py-1.5 rounded-lg transition">
-            <span id="envDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
-            <span id="envLabel" class="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-400 border-amber-500/30 shrink-0">СТЕНД</span>
-            <span id="envName" class="text-xs font-semibold text-slate-200 truncate max-w-[140px] hidden">—</span>
-            <span id="envUrl" class="font-mono text-emerald-400 font-semibold truncate max-w-[220px] text-xs">http://…</span>
-            <i class="fa-solid fa-chevron-down text-[9px] text-slate-500 shrink-0"></i>
+            class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 px-3 py-1.5 rounded-lg transition">
+            <span id="envDot" class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+            <span id="envLabel" class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 shrink-0">СТЕНД</span>
+            <span id="envName" class="text-xs font-semibold text-zinc-200 truncate max-w-[140px] hidden">—</span>
+            <span id="envUrl" class="font-mono text-zinc-200 font-medium truncate max-w-[220px] text-xs">http://…</span>
+            <i class="fa-solid fa-chevron-down text-[9px] text-zinc-500 shrink-0"></i>
           </button>
           <div id="standsDropdown" class="hidden absolute left-0 mt-2 w-80 max-w-[calc(100vw-2rem)] z-50 rounded-xl border border-darkborder bg-darkcard shadow-2xl overflow-hidden pop-in">
             <div id="standsDropdownList" class="max-h-72 overflow-y-auto">
-              <div class="px-3 py-3 text-[11px] text-slate-500 italic">Загрузка...</div>
+              <div class="px-3 py-3 text-[11px] text-zinc-500 italic">Загрузка...</div>
             </div>
             <button onclick="openStandsModal()"
-              class="w-full flex items-center gap-2 px-3 py-2.5 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white border-t border-darkborder transition">
-              <i class="fa-solid fa-gear text-slate-500 shrink-0"></i><span>Управление стендами…</span>
+              class="w-full flex items-center gap-2 px-3 py-2.5 text-left text-xs font-semibold text-zinc-300 hover:bg-zinc-900 hover:text-white border-t border-darkborder transition">
+              <i class="fa-solid fa-gear text-zinc-500 shrink-0"></i><span>Управление стендами…</span>
             </button>
           </div>
         </div>
@@ -82,23 +79,23 @@
 
       <!-- Right: global actions -->
       <div class="flex items-center space-x-2 shrink-0">
-        <button onclick="openConfigModal()" title="Настройки стенда" class="md:hidden w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition">
+        <button onclick="openConfigModal()" title="Настройки стенда" class="md:hidden w-9 h-9 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-lg transition">
           <i class="fa-solid fa-gear"></i>
         </button>
 
         <!-- Theme toggle -->
         <button onclick="toggleTheme()" id="themeToggleBtn" title="Переключить тему"
-          class="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition">
+          class="w-9 h-9 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-lg transition">
           <i id="themeIcon" class="fa-solid fa-moon"></i>
         </button>
 
         <!-- Global logs viewer (visible from any tab) -->
         <button onclick="openLogsOverlay()" id="openLogsBtn" title="Глобальный журнал всех событий прогона"
-          class="relative px-3 py-2 text-xs font-semibold bg-cyan-600/90 hover:bg-cyan-500 text-white rounded-lg transition flex items-center gap-2 shadow-lg shadow-cyan-600/20">
-          <i class="fa-solid fa-scroll"></i>
+          class="relative px-3 py-1.5 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 rounded-lg transition flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-scroll text-zinc-400"></i>
           <span class="hidden sm:inline">Все логи</span>
           <span id="openLogsBadge" title="Идёт прогон" style="display:none"
-            class="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold items-center justify-center animate-pulse">0</span>
+            class="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold items-center justify-center">0</span>
         </button>
       </div>
     </div>
@@ -108,30 +105,31 @@
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
 
     <!-- Navigation Tabs -->
-    <nav class="flex space-x-2 border-b border-darkborder pb-3 text-sm overflow-x-auto" aria-label="Разделы">
-      <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn active px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition shrink-0">
-        <i class="fa-solid fa-gauge-high text-green-400"></i>
+    <nav class="flex space-x-1.5 border-b border-darkborder pb-3 text-sm overflow-x-auto" aria-label="Разделы">
+      <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn active px-3.5 py-2 rounded-lg font-medium flex items-center space-x-2 transition shrink-0">
+        <i class="fa-solid fa-gauge text-zinc-400"></i>
         <span>Обзор</span>
       </button>
-      <button onclick="switchTab('checklists')" id="tab-checklists" class="tab-btn px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-slate-400 hover:text-slate-200 shrink-0">
-        <i class="fa-solid fa-list-check text-emerald-400"></i>
+      <button onclick="switchTab('checklists')" id="tab-checklists" class="tab-btn px-3.5 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-zinc-400 hover:text-zinc-200 shrink-0">
+        <i class="fa-solid fa-list-check text-zinc-400"></i>
         <span>Тесты &amp; Чеклисты</span>
       </button>
-      <button onclick="switchTab('scenarios')" id="tab-scenarios" class="tab-btn px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-slate-400 hover:text-slate-200 shrink-0">
-        <i class="fa-solid fa-pen-to-square text-fuchsia-400"></i>
+      <button onclick="switchTab('scenarios')" id="tab-scenarios" class="tab-btn px-3.5 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-zinc-400 hover:text-zinc-200 shrink-0">
+        <i class="fa-solid fa-code text-zinc-400"></i>
         <span>Редактор сценариев</span>
       </button>
-      <button onclick="switchTab('history')" id="tab-history" class="tab-btn px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-slate-400 hover:text-slate-200 shrink-0">
-        <i class="fa-solid fa-clock-rotate-left text-slate-400"></i>
-        <span>История</span>
+      <button onclick="switchTab('analysis')" id="tab-analysis" class="tab-btn px-3.5 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-zinc-400 hover:text-zinc-200 shrink-0">
+        <i class="fa-solid fa-chart-pie text-zinc-400"></i>
+        <span>Анализ &amp; Метрики</span>
       </button>
-      <button onclick="switchTab('vault')" id="tab-vault" class="tab-btn px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-slate-400 hover:text-slate-200 shrink-0">
-        <i class="fa-solid fa-key text-yellow-400"></i>
-        <span>Токены и доступ</span>
+      <button onclick="switchTab('mobile')" id="tab-mobile" class="tab-btn px-3.5 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-zinc-400 hover:text-zinc-200 shrink-0">
+        <i class="fa-solid fa-mobile-screen text-zinc-400"></i>
+        <span>Мобильные DTO</span>
+        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700">36</span>
       </button>
-      <button onclick="switchTab('tools')" id="tab-tools" class="tab-btn px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-slate-400 hover:text-slate-200 shrink-0">
-        <i class="fa-solid fa-screwdriver-wrench text-blue-400"></i>
-        <span>Инструменты</span>
+      <button onclick="switchTab('tools')" id="tab-tools" class="tab-btn px-3.5 py-2 rounded-lg font-medium flex items-center space-x-2 transition text-zinc-400 hover:text-zinc-200 shrink-0">
+        <i class="fa-solid fa-screwdriver-wrench text-zinc-400"></i>
+        <span>Управление &amp; Инструменты</span>
       </button>
     </nav>
 
@@ -189,22 +187,22 @@
 
       <!-- Quick actions -->
       <div class="bg-darkcard border border-darkborder rounded-xl p-5 space-y-4">
-        <h2 class="text-sm font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-bolt text-yellow-400"></i>
+        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i class="fa-solid fa-bolt text-zinc-400"></i>
           <span>Быстрые действия</span>
         </h2>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button onclick="openRegressionModal()" title="Полный регресс: все сюты на выбранном стенде со сводкой в Telegram"
-            class="qa-btn bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white shadow-lg shadow-fuchsia-600/25 disabled:opacity-50">
-            <i class="fa-solid fa-rocket"></i><span>Регресс после релиза</span>
+            class="qa-btn bg-white hover:bg-zinc-200 text-zinc-950 font-semibold shadow-sm disabled:opacity-50">
+            <i class="fa-solid fa-play"></i><span>Регресс после релиза</span>
           </button>
           <button onclick="goToChecklists()" title="Перейти к сетке тестов и чеклистов"
-            class="qa-btn bg-slate-800 hover:bg-slate-700 text-slate-100 border border-darkborder">
-            <i class="fa-solid fa-list-check text-emerald-400"></i><span>К чеклистам</span>
+            class="qa-btn bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder">
+            <i class="fa-solid fa-list-check text-zinc-400"></i><span>К чеклистам</span>
           </button>
           <button onclick="newScenarioFromOverview()" title="Создать свой сценарий в редакторе"
-            class="qa-btn bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-600/20">
-            <i class="fa-solid fa-plus"></i><span>Новый сценарий</span>
+            class="qa-btn bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder">
+            <i class="fa-solid fa-plus text-zinc-400"></i><span>Новый сценарий</span>
           </button>
         </div>
       </div>
@@ -225,16 +223,16 @@
         <div id="recentRunsList"></div>
         <div id="recentRunsEmpty" class="hidden">
           <div class="py-10 text-center space-y-3">
-            <div class="mx-auto w-14 h-14 rounded-2xl bg-slate-800/70 border border-darkborder flex items-center justify-center">
-              <i class="fa-solid fa-flask text-xl text-slate-500"></i>
+            <div class="mx-auto w-12 h-12 rounded-xl bg-zinc-900 border border-darkborder flex items-center justify-center">
+              <i class="fa-solid fa-flask text-lg text-zinc-500"></i>
             </div>
-            <p class="text-xs text-slate-400">Пока нет прогонов — начните с Flow&nbsp;A «Заказ из ресторана».</p>
+            <p class="text-xs text-zinc-400">Пока нет прогонов — начните с Flow&nbsp;A «Заказ из ресторана».</p>
             <div class="flex items-center justify-center gap-2 flex-wrap">
               <button onclick="triggerRun('flow_a')" title="Запуск полного цикла заказа"
-                class="px-4 py-2 text-xs bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition shadow-lg shadow-green-600/20">
+                class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg transition shadow-sm">
                 <i class="fa-solid fa-play mr-1"></i>Запустить Flow A
               </button>
-              <button onclick="goToChecklists()" class="px-3 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition">
+              <button onclick="goToChecklists()" class="px-3 py-2 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder rounded-lg transition">
                 Все тесты
               </button>
             </div>
@@ -250,17 +248,17 @@
 
       <!-- How-to banner (collapsed by default) -->
       <details class="bg-darkcard border border-darkborder rounded-xl text-xs">
-        <summary class="px-4 py-3 cursor-pointer select-none font-semibold text-slate-200 flex items-center gap-2">
-          <i class="fa-solid fa-circle-question text-emerald-400"></i>
+        <summary class="px-4 py-3 cursor-pointer select-none font-medium text-zinc-300 flex items-center gap-2">
+          <i class="fa-solid fa-circle-question text-zinc-400"></i>
           <span>Как пользоваться тестами и чеклистами</span>
-          <i class="fa-solid fa-chevron-down chev ml-auto text-[10px] text-slate-500"></i>
+          <i class="fa-solid fa-chevron-down chev ml-auto text-[10px] text-zinc-500"></i>
         </summary>
-        <div class="px-5 pb-4 pt-1 text-slate-300 space-y-1.5 leading-relaxed">
-          <p>• Выберите сюты галочками («в батч») и запустите кнопкой «Запустить выбранное» — или запускайте каждый сьют по одному ▶ из его карточки.</p>
-          <p>• Во время прогона на карточке виден прогресс («Шаг 3 из 7 — …»); после завершения появится итоговый баннер с кнопками «Отчёт» и «Логи прогона».</p>
-          <p>• Кнопка «Все логи» в шапке открывает глобальный журнал событий из любого раздела — с фильтрами, поиском и скачиванием.</p>
-          <p>• Клик по строке в табе «История» открывает отчёт: таймлайн шагов и технические детали.</p>
-          <p>• Свои сценарии создавайте в табе «Редактор сценариев» — они появятся здесь с кнопками редактирования.</p>
+        <div class="px-5 pb-4 pt-1 text-zinc-400 space-y-1.5 leading-relaxed">
+          <p>• Выберите сюты чекбоксами («в батч») и запустите кнопкой «Запустить выбранное» — или запускайте каждый сьют индивидуально из его карточки.</p>
+          <p>• Во время прогона на карточке отображается прогресс; после завершения выводится итоговый статус и кнопки «Отчёт» и «Логи».</p>
+          <p>• Кнопка «Все логи» в шапке открывает глобальный журнал событий из любого раздела с фильтрами, поиском и экспортом.</p>
+          <p>• Клик по строке в табе «История» открывает отчёт: таймлайн шагов и технические сетевые детали.</p>
+          <p>• Пользовательские сценарии создавайте в табе «Редактор сценариев» — они автоматически появятся в каталоге.</p>
         </div>
       </details>
 
@@ -268,11 +266,11 @@
       <div class="bg-darkcard border border-darkborder rounded-xl p-5 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-darkborder pb-4">
           <div>
-            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
-              <i class="fa-solid fa-list-check text-emerald-400"></i>
+            <h2 class="text-base font-semibold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-list-check text-zinc-400"></i>
               <span>Тесты &amp; Чеклисты</span>
             </h2>
-            <p class="text-xs text-slate-400 mt-1">Реестр тестовых сютов из бэкенда. Отмечайте сюты в батч и запускайте — статусы чеков обновляются в реальном времени по SSE.</p>
+            <p class="text-xs text-zinc-400 mt-1">Реестр тестовых сютов из бэкенда. Отмечайте сюты в батч и запускайте — статусы чеков обновляются в реальном времени по SSE.</p>
           </div>
           <div id="suitesError" class="hidden px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 text-xs font-semibold">
             <i class="fa-solid fa-triangle-exclamation mr-1"></i>Не удалось загрузить реестр
@@ -280,38 +278,38 @@
         </div>
 
         <div class="flex flex-col lg:flex-row lg:items-center gap-3">
-          <span id="batchCount" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-darkborder font-mono font-semibold shrink-0">Выбрано: 0</span>
-          <button id="runSelectedBtn" onclick="runSelectedSuites(this)" disabled class="px-4 py-1.5 text-xs bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-green-600 text-white font-semibold rounded-lg transition flex items-center justify-center space-x-2 shrink-0">
-            <i class="fa-solid fa-play"></i>
+          <span id="batchCount" class="text-xs px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-300 border border-darkborder font-mono font-medium shrink-0">Выбрано: 0</span>
+          <button id="runSelectedBtn" onclick="runSelectedSuites(this)" disabled class="px-4 py-1.5 text-xs bg-white hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-950 font-semibold rounded-lg transition flex items-center justify-center space-x-2 shrink-0 shadow-sm">
+            <i class="fa-solid fa-play text-xs"></i>
             <span>Запустить выбранное</span>
           </button>
           <button onclick="openRegressionAll()" title="Выделить все сюты и открыть модалку регресса"
-            class="px-4 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-fuchsia-300 border border-fuchsia-500/30 font-semibold rounded-lg transition flex items-center justify-center space-x-2 shrink-0">
-            <i class="fa-solid fa-rocket"></i>
+            class="px-4 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder font-medium rounded-lg transition flex items-center justify-center space-x-2 shrink-0">
+            <i class="fa-solid fa-play text-zinc-400 text-xs"></i>
             <span>Регресс всех</span>
           </button>
-          <button onclick="resetChecklist()" title="Сбросить локальные статусы чеков" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-darkborder rounded-lg transition shrink-0">
+          <button onclick="resetChecklist()" title="Сбросить локальные статусы чеков" class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-darkborder rounded-lg transition shrink-0">
             <i class="fa-solid fa-rotate-right mr-1"></i> Сбросить статусы
           </button>
           <div class="flex items-center gap-3 lg:ml-auto">
-            <span id="checklistProgressText" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono font-semibold shrink-0">Пройдено: 0 / 0</span>
-            <div class="flex-1 min-w-[160px] h-2.5 bg-slate-800 rounded-full overflow-hidden border border-darkborder">
-              <div id="checklistProgressBarFill" class="h-full bg-gradient-to-r from-emerald-600 to-green-400 rounded-full transition-all duration-300" style="width: 0%"></div>
+            <span id="checklistProgressText" class="text-xs px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-200 border border-darkborder font-mono font-medium shrink-0">Пройдено: 0 / 0</span>
+            <div class="flex-1 min-w-[160px] h-2 bg-zinc-900 rounded-full overflow-hidden border border-darkborder">
+              <div id="checklistProgressBarFill" class="h-full bg-white rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
-            <button onclick="loadSuites()" title="Обновить реестр сютов" class="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-darkborder rounded-lg transition shrink-0">
+            <button onclick="loadSuites()" title="Обновить реестр сютов" class="px-2.5 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-darkborder rounded-lg transition shrink-0">
               <i class="fa-solid fa-arrows-rotate"></i>
             </button>
           </div>
         </div>
 
         <!-- Status Legend -->
-        <div class="flex items-center gap-4 flex-wrap text-[10px] text-slate-400 border-t border-darkborder pt-3">
-          <span class="font-bold text-slate-300 uppercase tracking-wider">Легенда:</span>
-          <span class="flex items-center gap-1.5"><i class="fa-regular fa-circle text-slate-500"></i> ожидает</span>
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-notch fa-spin text-blue-400"></i> выполняется</span>
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-check-circle text-green-400"></i> прошёл</span>
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-times-circle text-red-400"></i> упал</span>
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-minus text-yellow-400"></i> пропущено</span>
+        <div class="flex items-center gap-4 flex-wrap text-[10px] text-zinc-400 border-t border-darkborder pt-3">
+          <span class="font-semibold text-zinc-300 uppercase tracking-wider">Легенда:</span>
+          <span class="flex items-center gap-1.5"><i class="fa-regular fa-circle text-zinc-500"></i> ожидает</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-notch fa-spin text-zinc-300"></i> выполняется</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-check text-emerald-400"></i> прошёл</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-xmark text-red-400"></i> упал</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-minus text-zinc-500"></i> пропущено</span>
         </div>
       </div>
 
@@ -331,103 +329,106 @@
         <!-- Left column: scenarios list -->
         <div class="lg:col-span-1 bg-darkcard border border-darkborder rounded-xl p-4 space-y-3">
           <div class="flex items-center justify-between">
-            <h2 class="font-bold text-white text-sm flex items-center gap-2">
-              <i class="fa-solid fa-layer-group text-fuchsia-400"></i>
+            <h2 class="font-semibold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-layer-group text-zinc-400"></i>
               <span>Мои сценарии</span>
             </h2>
-            <button onclick="loadScenarioEditor()" title="Перезагрузить список сценариев" class="px-2 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-darkborder rounded-lg transition">
+            <button onclick="loadScenarioEditor()" title="Перезагрузить список сценариев" class="px-2 py-1 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-darkborder rounded-lg transition">
               <i class="fa-solid fa-arrows-rotate"></i>
             </button>
           </div>
-          <button onclick="newScenario()" class="w-full px-3 py-2 text-xs bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-600/20">
+          <button onclick="newScenario()" class="w-full px-3 py-2 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg transition flex items-center justify-center gap-2 shadow-sm">
             <i class="fa-solid fa-plus"></i><span>Новый сценарий</span>
           </button>
+          <button onclick="openReplenishModal(false)" class="w-full px-3 py-2 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder font-semibold rounded-lg transition flex items-center justify-center gap-2 shadow-sm">
+            <i class="fa-solid fa-wand-magic-sparkles text-zinc-400"></i><span>Автопополнение сценариев</span>
+          </button>
           <div id="scenarioList" class="space-y-2 max-h-[560px] overflow-y-auto pr-1">
-            <div class="text-xs text-slate-500 italic p-3 bg-slate-900/50 rounded-lg border border-darkborder">Загрузка...</div>
+            <div class="text-xs text-zinc-500 italic p-3 bg-zinc-900/50 rounded-lg border border-darkborder">Загрузка...</div>
           </div>
         </div>
 
         <!-- Right column: editor -->
         <div class="lg:col-span-2 bg-darkcard border border-darkborder rounded-xl p-4 space-y-4">
           <div class="flex items-center justify-between gap-2 border-b border-darkborder pb-3">
-            <h2 class="font-bold text-white text-sm flex items-center gap-2">
-              <i class="fa-solid fa-pen-to-square text-fuchsia-400"></i>
+            <h2 class="font-semibold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-pen-to-square text-zinc-400"></i>
               <span>Редактор кастомных сценариев</span>
             </h2>
-            <span id="scModeBadge" class="text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 bg-green-500/10 text-green-400 border-green-500/30">НОВЫЙ</span>
+            <span id="scModeBadge" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded border shrink-0 bg-zinc-800 text-zinc-300 border-zinc-700">НОВЫЙ</span>
           </div>
 
           <div id="scenariosErrorBox" class="hidden px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono whitespace-pre-wrap break-all"></div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
-              <label class="block font-semibold text-slate-300 mb-1">Key <span class="text-red-400">*</span></label>
-              <input type="text" id="scKey" placeholder="my_flow_check" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 font-mono text-white placeholder-slate-600 focus:border-fuchsia-500/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60">
-              <p class="text-[10px] text-slate-500 mt-1 font-mono">^[a-z][a-z0-9_]{2,39}$ · при редактировании заблокирован</p>
+              <label class="block font-semibold mb-1">Key <span class="text-red-400">*</span></label>
+              <input type="text" id="scKey" placeholder="my_flow_check" class="w-full px-2.5 py-2 font-mono disabled:cursor-not-allowed disabled:opacity-60">
+              <p class="text-[10px] text-zinc-500 mt-1 font-mono">^[a-z][a-z0-9_]{2,39}$ · при редактировании заблокирован</p>
             </div>
             <div>
-              <label class="block font-semibold text-slate-300 mb-1">Название (Title) <span class="text-red-400">*</span></label>
-              <input type="text" id="scTitle" placeholder="Проверка моего флоу" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-white placeholder-slate-600 focus:border-fuchsia-500/50 focus:outline-none">
+              <label class="block font-semibold mb-1">Название (Title) <span class="text-red-400">*</span></label>
+              <input type="text" id="scTitle" placeholder="Проверка моего флоу" class="w-full px-2.5 py-2">
             </div>
             <div class="sm:col-span-2">
-              <label class="block font-semibold text-slate-300 mb-1">Описание</label>
-              <textarea id="scDesc" rows="2" placeholder="Что проверяет сценарий..." class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-white placeholder-slate-600 focus:border-fuchsia-500/50 focus:outline-none"></textarea>
+              <label class="block font-semibold mb-1">Описание</label>
+              <textarea id="scDesc" rows="2" placeholder="Что проверяет сценарий..." class="w-full px-2.5 py-2"></textarea>
             </div>
             <div class="sm:col-span-2">
-              <label class="block font-semibold text-slate-300 mb-1">Теги (через запятую)</label>
-              <input type="text" id="scTags" placeholder="smoke, delivery, my-tag" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 font-mono text-white placeholder-slate-600 focus:border-fuchsia-500/50 focus:outline-none">
+              <label class="block font-semibold mb-1">Теги (через запятую)</label>
+              <input type="text" id="scTags" placeholder="smoke, delivery, my-tag" class="w-full px-2.5 py-2 font-mono">
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Зависимости (dependsOn) — сюты, которые выполнятся раньше этого</label>
+            <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Зависимости (dependsOn) — сюты, которые выполнятся раньше этого</label>
             <div id="dependsChips" class="flex flex-wrap gap-1.5"></div>
-            <p class="text-[10px] text-slate-500 mt-1">Клик по чипу — включить/выключить зависимость. Список строится из всех известных сютов (встроенные + custom).</p>
+            <p class="text-[10px] text-zinc-500 mt-1">Клик по чипу — включить/выключить зависимость. Список строится из всех известных сютов (встроенные + custom).</p>
           </div>
 
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <label class="text-xs font-semibold text-slate-300">Переменные (vars)</label>
-              <button onclick="addVarRow()" title="Добавить переменную" class="text-[11px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition"><i class="fa-solid fa-plus mr-1"></i>Добавить переменную</button>
+              <label class="text-xs font-semibold text-zinc-300">Переменные (vars)</label>
+              <button onclick="addVarRow()" title="Добавить переменную" class="text-[11px] px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition"><i class="fa-solid fa-plus mr-1"></i>Добавить переменную</button>
             </div>
             <div id="varsContainer" class="space-y-1.5"></div>
           </div>
 
           <div>
             <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-semibold text-slate-300">Шаги <span class="text-red-400">*</span></label>
+              <label class="text-xs font-semibold text-zinc-300">Шаги <span class="text-red-400">*</span></label>
               <div class="flex items-center gap-1.5">
-                <button onclick="addStep('http')" title="Добавить HTTP шаг" class="text-[11px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-darkborder rounded-lg transition"><i class="fa-solid fa-globe mr-1"></i>HTTP</button>
-                <button onclick="addStep('delay')" title="Добавить паузу" class="text-[11px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-darkborder rounded-lg transition"><i class="fa-solid fa-hourglass-half mr-1"></i>Delay</button>
-                <button onclick="addStep('assert')" title="Добавить проверку" class="text-[11px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-darkborder rounded-lg transition"><i class="fa-solid fa-clipboard-check mr-1"></i>Assert</button>
+                <button onclick="addStep('http')" title="Добавить HTTP шаг" class="text-[11px] px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition"><i class="fa-solid fa-globe mr-1 text-zinc-400"></i>HTTP</button>
+                <button onclick="addStep('delay')" title="Добавить паузу" class="text-[11px] px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition"><i class="fa-solid fa-hourglass-half mr-1 text-zinc-400"></i>Delay</button>
+                <button onclick="addStep('assert')" title="Добавить проверку" class="text-[11px] px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition"><i class="fa-solid fa-clipboard-check mr-1 text-zinc-400"></i>Assert</button>
               </div>
             </div>
             <div id="stepsContainer" class="space-y-3"></div>
           </div>
 
           <!-- Cheat sheet -->
-          <details class="border border-darkborder rounded-lg bg-slate-900/60 text-xs">
-            <summary class="px-3 py-2 cursor-pointer select-none font-semibold text-slate-200 flex items-center gap-2">
-              <i class="fa-solid fa-book text-amber-400"></i>
+          <details class="border border-darkborder rounded-lg bg-zinc-900/60 text-xs">
+            <summary class="px-3 py-2 cursor-pointer select-none font-medium text-zinc-300 flex items-center gap-2">
+              <i class="fa-solid fa-book text-zinc-400"></i>
               <span>Шпаргалка</span>
               <i class="fa-solid fa-chevron-down chev ml-auto text-[10px] text-slate-500"></i>
             </summary>
-            <div class="px-4 pb-3 pt-1 space-y-2 text-slate-300 leading-relaxed">
-              <ul class="list-disc marker:text-amber-500 space-y-1 pl-4">
-                <li>Подстановка в строках (path, body, left): <code class="text-cyan-300">{{var}}</code> — vars сценария или результат extract; спецпеременные <code class="text-cyan-300">{{uuid}}</code> и <code class="text-cyan-300">{{today}}</code>.</li>
-                <li><b>extract</b>: имя переменной → JSONPath ответа, например <code class="text-cyan-300">$.data.order_id</code>. Далее используйте как <code class="text-cyan-300">{{order_id}}</code>.</li>
+            <div class="px-4 pb-3 pt-1 space-y-2 text-zinc-300 leading-relaxed">
+              <ul class="list-disc marker:text-zinc-500 space-y-1 pl-4">
+                <li>Подстановка в строках (path, body, left): <code class="text-zinc-200 font-mono">{{var}}</code> — vars сценария или результат extract; спецпеременные <code class="text-zinc-200 font-mono">{{uuid}}</code> и <code class="text-zinc-200 font-mono">{{today}}</code>.</li>
+                <li><b>extract</b>: имя переменной → JSONPath ответа, например <code class="text-zinc-200 font-mono">$.data.order_id</code>. Далее используйте как <code class="text-zinc-200 font-mono">{{order_id}}</code>.</li>
                 <li><b>expectStatus</b>: точный код (200, 404…) или класс («2xx», «4xx», «5xx»). Пусто — статус не проверяется.</li>
-                <li><b>asserts</b> HTTP-шага: JSONPath (<code class="text-cyan-300">$.x</code>) + оператор eq / neq / contains / exists (value не нужен для exists).</li>
-                <li>Шаг <b>assert</b>: сравнение значения/переменной (<code class="text-cyan-300">{{var}}</code>): notEmpty / eq / neq / contains.</li>
+                <li><b>asserts</b> HTTP-шага: JSONPath (<code class="text-zinc-200 font-mono">$.x</code>) + оператор eq / neq / contains / exists (value не нужен для exists).</li>
+                <li>Шаг <b>assert</b>: сравнение значения/переменной (<code class="text-zinc-200 font-mono">{{var}}</code>): notEmpty / eq / neq / contains.</li>
                 <li><b>Роль (role)</b>: чей Bearer-токен отправить; none — без авторизации.</li>
               </ul>
               <details class="border border-darkborder rounded-lg">
-                <summary class="px-3 py-1.5 cursor-pointer select-none font-semibold text-slate-300 flex items-center gap-2">
-                  <i class="fa-solid fa-code text-cyan-400"></i>
+                <summary class="px-3 py-1.5 cursor-pointer select-none font-semibold text-zinc-300 flex items-center gap-2">
+                  <i class="fa-solid fa-code text-zinc-400"></i>
                   <span>Пример мини-сценария (JSON)</span>
-                  <i class="fa-solid fa-chevron-down chev ml-auto text-[10px] text-slate-500"></i>
+                  <i class="fa-solid fa-chevron-down chev ml-auto text-[10px] text-zinc-500"></i>
                 </summary>
-                <pre class="mx-3 mt-2 bg-slate-950 border border-darkborder rounded-lg p-2.5 font-mono text-[10px] leading-relaxed text-green-300 overflow-auto max-h-64 select-text">{
+                <pre class="mx-3 mt-2 bg-zinc-950 border border-darkborder rounded-lg p-2.5 font-mono text-[10px] leading-relaxed text-zinc-300 overflow-auto max-h-64 select-text">{
   "key": "my_smoke_example",
   "title": "Пример: смоук регистрации клиента",
   "tags": ["example", "smoke"],
@@ -460,91 +461,152 @@
     }
   ]
 }</pre>
-                <button onclick="insertExampleScenario()" class="m-3 px-3 py-1.5 text-[11px] bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition"><i class="fa-solid fa-file-import mr-1"></i>Вставить пример в форму</button>
+                <button onclick="insertExampleScenario()" class="m-3 px-3 py-1.5 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 font-semibold rounded-lg transition"><i class="fa-solid fa-file-import mr-1"></i>Вставить пример в форму</button>
               </details>
             </div>
           </details>
 
           <div class="border-t border-darkborder pt-3 flex flex-wrap items-center gap-2">
-            <button onclick="saveScenario(this)" class="px-3.5 py-2 text-xs bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold rounded-lg transition flex items-center gap-2 shadow-lg shadow-green-600/20"><i class="fa-solid fa-floppy-disk"></i><span>Сохранить</span></button>
-            <button onclick="runScenarioFromEditor(this)" class="px-3.5 py-2 text-xs bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold rounded-lg transition flex items-center gap-2 shadow-lg shadow-emerald-600/20"><i class="fa-solid fa-play"></i><span>Запустить</span></button>
-            <button onclick="duplicateScenario()" title="Скопировать в новый черновик" class="px-3.5 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Дублировать</span></button>
-            <button onclick="deleteScenarioFromEditor()" class="px-3.5 py-2 text-xs bg-slate-800 hover:bg-red-950 text-red-400 border border-darkborder rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-trash"></i><span>Удалить</span></button>
-            <button onclick="cancelScenarioEdit()" class="ml-auto px-3.5 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-darkborder rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-xmark"></i><span>Отменить</span></button>
+            <button onclick="saveScenario(this)" class="px-3.5 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg transition flex items-center gap-2 shadow-sm"><i class="fa-solid fa-floppy-disk"></i><span>Сохранить</span></button>
+            <button onclick="runScenarioFromEditor(this)" class="px-3.5 py-2 text-xs bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-zinc-200 border border-zinc-700 font-medium rounded-lg transition flex items-center gap-2 shadow-sm"><i class="fa-solid fa-play"></i><span>Запустить</span></button>
+            <button onclick="duplicateScenario()" title="Скопировать в новый черновик" class="px-3.5 py-2 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-copy"></i><span>Дублировать</span></button>
+            <button onclick="deleteScenarioFromEditor()" class="px-3.5 py-2 text-xs bg-zinc-900 hover:bg-red-950/60 text-red-400 border border-darkborder rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-trash"></i><span>Удалить</span></button>
+            <button onclick="cancelScenarioEdit()" class="ml-auto px-3.5 py-2 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-darkborder rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-xmark"></i><span>Отменить</span></button>
           </div>
         </div>
       </div>
     </section>
 
     <!-- ================================================== -->
-    <!-- TAB 4: HISTORY                                      -->
+    <!-- TAB: ANALYSIS & METRICS                            -->
     <!-- ================================================== -->
-    <section id="view-history" class="tab-view hidden space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-clock-rotate-left text-slate-400"></i>
-          <span>История выполнения тестов</span>
-        </h2>
-        <button onclick="loadHistory()" title="Обновить список прогонов" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition">
-          <i class="fa-solid fa-arrows-rotate mr-1"></i> Обновить
+    <section id="view-analysis" class="tab-view hidden space-y-6">
+      <!-- Quick Section Jump Bar -->
+      <div class="flex items-center gap-2 p-2 bg-zinc-900 border border-darkborder rounded-xl text-xs overflow-x-auto shrink-0 shadow-sm">
+        <span class="text-zinc-500 font-semibold uppercase text-[10px] px-2 tracking-wider">Разделы:</span>
+        <button onclick="document.getElementById('coverageContainer').scrollIntoView({behavior:'smooth'})" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center gap-1.5 shrink-0 transition">
+          <i class="fa-solid fa-chart-pie text-zinc-400"></i><span>Покрытие API</span>
+        </button>
+        <button onclick="document.getElementById('diagnosticsContainer').scrollIntoView({behavior:'smooth'})" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center gap-1.5 shrink-0 transition">
+          <i class="fa-solid fa-stethoscope text-zinc-400"></i><span>RCA Диагностика</span>
+        </button>
+        <button onclick="document.getElementById('metricsContainer').scrollIntoView({behavior:'smooth'})" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center gap-1.5 shrink-0 transition">
+          <i class="fa-solid fa-gauge-high text-zinc-400"></i><span>Метрики качества</span>
+        </button>
+        <button onclick="document.getElementById('mobileContractContainer').scrollIntoView({behavior:'smooth'})" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 flex items-center gap-1.5 shrink-0 font-medium transition">
+          <i class="fa-solid fa-mobile-screen text-zinc-400"></i><span>Мобильные DTO (Flutter / iOS / Android)</span>
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-700 text-zinc-300">36</span>
         </button>
       </div>
 
-      <div class="bg-darkcard border border-darkborder rounded-xl overflow-hidden">
-        <table class="w-full text-left text-xs">
-          <thead class="bg-slate-900 text-slate-300">
-            <tr>
-              <th class="p-3 border-b border-darkborder">Run ID</th>
-              <th class="p-3 border-b border-darkborder">Сценарий</th>
-              <th class="p-3 border-b border-darkborder">Suite Key</th>
-              <th class="p-3 border-b border-darkborder">Статус</th>
-              <th class="p-3 border-b border-darkborder">Чеки</th>
-              <th class="p-3 border-b border-darkborder">Шаги</th>
-              <th class="p-3 border-b border-darkborder">Длительность</th>
-              <th class="p-3 border-b border-darkborder">Когда</th>
-            </tr>
-          </thead>
-          <tbody id="historyTableBody" class="divide-y divide-darkborder text-slate-300">
-            <tr><td colspan="8" class="p-4 text-center text-slate-500">История пуста. Кликните по строке для отчёта по прогону.</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <div id="coverageContainer"></div>
+      <div id="diagnosticsContainer"></div>
+      <div id="metricsContainer"></div>
+      <div id="mobileContractContainer"></div>
     </section>
 
     <!-- ================================================== -->
-    <!-- TAB 5: TOKEN VAULT                                  -->
+    <!-- TAB: MOBILE DTO CONTRACT COMPATIBILITY             -->
     <!-- ================================================== -->
-    <section id="view-vault" class="tab-view hidden space-y-6">
+    <section id="view-mobile" class="tab-view hidden space-y-6">
+      <div id="mobileContractMainContainer"></div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- UNIFIED TOOLS & MANAGEMENT SECTION                 -->
+    <!-- Sub-tabs: History, Vault, Spec, StateMachine, Play -->
+    <!-- ================================================== -->
+    <section id="view-tools" class="tab-view hidden space-y-5">
+
+      <!-- Tools Sub-Navigation Bar -->
+      <div id="toolsSubnav" class="flex items-center gap-1.5 p-1.5 rounded-xl border border-darkborder text-xs overflow-x-auto shrink-0 shadow-sm">
+        <button onclick="switchToolsSubtab('history')" id="tools-subtab-history" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0 active">
+          <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+          <span>История прогонов</span>
+        </button>
+        <button onclick="switchToolsSubtab('vault')" id="tools-subtab-vault" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
+          <i class="fa-solid fa-key text-xs"></i>
+          <span>Токены и доступ (Vault)</span>
+        </button>
+        <button onclick="switchToolsSubtab('spec')" id="tools-subtab-spec" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
+          <i class="fa-solid fa-book-open text-xs"></i>
+          <span>Спецификация API</span>
+        </button>
+        <button onclick="switchToolsSubtab('statemachine')" id="tools-subtab-statemachine" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
+          <i class="fa-solid fa-diagram-project text-xs"></i>
+          <span>State Machine</span>
+        </button>
+        <button onclick="switchToolsSubtab('playground')" id="tools-subtab-playground" class="tools-subtab px-3.5 py-1.5 rounded-lg font-medium flex items-center gap-2 transition shrink-0">
+          <i class="fa-solid fa-paper-plane text-xs"></i>
+          <span>API Playground</span>
+        </button>
+      </div>
+
+      <!-- 1. SUB-VIEW: HISTORY -->
+      <div id="tools-subview-history" class="tools-subview space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-zinc-400"></i>
+            <span>История выполнения тестов</span>
+          </h2>
+          <button onclick="loadHistory()" title="Обновить список прогонов" class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder rounded-lg transition flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-rotate mr-1"></i>Обновить
+          </button>
+        </div>
+
+        <div class="bg-darkcard border border-darkborder rounded-xl overflow-hidden">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-zinc-900 text-zinc-400 font-semibold border-b border-darkborder">
+              <tr>
+                <th class="p-3">Run ID</th>
+                <th class="p-3">Сценарий</th>
+                <th class="p-3">Suite Key</th>
+                <th class="p-3">Статус</th>
+                <th class="p-3">Чеки</th>
+                <th class="p-3">Шаги</th>
+                <th class="p-3">Длительность</th>
+                <th class="p-3">Когда</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody" class="divide-y divide-darkborder text-zinc-300">
+              <tr><td colspan="8" class="p-4 text-center text-zinc-500">История пуста. Кликните по строке для отчёта по прогону.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. SUB-VIEW: TOKEN VAULT -->
+      <div id="tools-subview-vault" class="tools-subview hidden space-y-6">
 
       <!-- Vault Header & Actions -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-darkcard border border-darkborder rounded-xl p-5">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
-            <i class="fa-solid fa-vault text-yellow-400"></i>
+          <h2 class="text-base font-semibold text-white flex items-center space-x-2">
+            <i class="fa-solid fa-vault text-zinc-400"></i>
             <span>Multi-Token Vault &amp; Profiles</span>
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Управление пулами активных токенов для всех 4 ролей. Добавляйте, переключайте и генерируйте токены на лету.</p>
-          <span id="vaultStandBadge" class="hidden mt-1.5 inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-slate-800/60 text-yellow-300 border-yellow-500/30"></span>
+          <p class="text-xs text-zinc-400 mt-0.5">Управление пулами активных токенов для всех 4 ролей. Добавляйте, переключайте и генерируйте токены на лету.</p>
+          <span id="vaultStandBadge" class="hidden mt-1.5 inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700"></span>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <button onclick="openRegisterModal()" title="Регистрация нового аккаунта через API" class="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition flex items-center space-x-1.5">
-            <i class="fa-solid fa-user-plus"></i>
+          <button onclick="openRegisterModal()" title="Регистрация нового аккаунта через API" class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+            <i class="fa-solid fa-user-plus text-zinc-400"></i>
             <span>Регистрация аккаунта</span>
           </button>
-          <button onclick="openAddTokenModal()" title="Вставить готовый JWT вручную" class="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition flex items-center space-x-1.5">
-            <i class="fa-solid fa-plus"></i>
+          <button onclick="openAddTokenModal()" title="Вставить готовый JWT вручную" class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+            <i class="fa-solid fa-plus text-zinc-400"></i>
             <span>Вставить токен</span>
           </button>
-          <button onclick="openQuickAuthModal()" title="Получить токен логином через API" class="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition flex items-center space-x-1.5">
-            <i class="fa-solid fa-right-to-bracket"></i>
+          <button onclick="openQuickAuthModal()" title="Получить токен логином через API" class="px-3 py-1.5 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+            <i class="fa-solid fa-arrow-right-to-bracket text-zinc-950"></i>
             <span>Логин через API</span>
           </button>
-          <button onclick="generatePresetPool(this)" title="Сгенерировать пул 2 клиента × 2 ресторана × 2 курьера" class="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg transition flex items-center space-x-1.5">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <button onclick="generatePresetPool(this)" title="Сгенерировать пул 2 клиента × 2 ресторана × 2 курьера" class="px-3 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+            <i class="fa-solid fa-wand-magic-sparkles text-zinc-400"></i>
             <span>1-Click Preset (2x2x2)</span>
           </button>
-          <button onclick="loadVault()" title="Обновить хранилище" class="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-darkborder rounded-lg transition">
+          <button onclick="loadVault()" title="Обновить хранилище" class="px-2.5 py-1.5 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-darkborder rounded-lg transition">
             <i class="fa-solid fa-arrows-rotate"></i>
           </button>
         </div>
@@ -554,63 +616,63 @@
       <div class="bg-darkcard border border-darkborder rounded-xl p-5 space-y-4">
         <div class="flex flex-wrap items-start justify-between gap-3 border-b border-darkborder pb-3">
           <div class="flex items-start space-x-2.5">
-            <div class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs shrink-0">
+            <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 flex items-center justify-center text-xs shrink-0">
               <i class="fa-solid fa-user-check"></i>
             </div>
             <div>
-              <h3 class="font-bold text-sm text-white">Аккаунты для прогонов</h3>
-              <p class="text-[11px] text-slate-400 leading-snug mt-0.5 max-w-2xl">
+              <h3 class="font-semibold text-sm text-white">Аккаунты для прогонов</h3>
+              <p class="text-[11px] text-zinc-400 leading-snug mt-0.5 max-w-2xl">
                 По умолчанию каждый прогон создаёт новые аккаунты — так тесты не мешают друг другу.
                 Выберите профиль, чтобы сьюты шли под конкретным аккаунтом: это нужно, когда на стенде
                 есть подготовленные вручную данные, которых у сгенерированной фикстуры не будет.
               </p>
             </div>
           </div>
-          <button onclick="saveFixtureAccounts(this)" class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition flex items-center space-x-1.5 shrink-0">
-            <i class="fa-solid fa-floppy-disk"></i>
+          <button onclick="saveFixtureAccounts(this)" class="px-3.5 py-1.5 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg transition flex items-center space-x-1.5 shrink-0 shadow-sm">
+            <i class="fa-solid fa-check"></i>
             <span>Применить</span>
           </button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <div class="space-y-1.5">
-            <label class="text-[11px] font-semibold text-green-400 flex items-center gap-1.5">
-              <i class="fa-solid fa-mobile-screen"></i> Клиент
+            <label class="text-[11px] font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-mobile-screen text-zinc-400"></i> Клиент
             </label>
-            <select id="fixtureAccountClient" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-xs text-white focus:border-green-500/50 focus:outline-none">
+            <select id="fixtureAccountClient" class="w-full px-2.5 py-2 text-xs">
               <option value="">Создавать нового</option>
             </select>
-            <div id="fixtureAccountClientHint" class="text-[10px] text-slate-500 font-mono truncate"></div>
+            <div id="fixtureAccountClientHint" class="text-[10px] text-zinc-500 font-mono truncate"></div>
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-[11px] font-semibold text-amber-400 flex items-center gap-1.5">
-              <i class="fa-solid fa-utensils"></i> Ресторан
+            <label class="text-[11px] font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-utensils text-zinc-400"></i> Ресторан
             </label>
-            <select id="fixtureAccountRest" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-xs text-white focus:border-amber-500/50 focus:outline-none">
+            <select id="fixtureAccountRest" class="w-full px-2.5 py-2 text-xs">
               <option value="">Создавать нового</option>
             </select>
-            <div id="fixtureAccountRestHint" class="text-[10px] text-slate-500 font-mono truncate"></div>
+            <div id="fixtureAccountRestHint" class="text-[10px] text-zinc-500 font-mono truncate"></div>
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-[11px] font-semibold text-cyan-400 flex items-center gap-1.5">
-              <i class="fa-solid fa-motorcycle"></i> Курьер
+            <label class="text-[11px] font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-motorcycle text-zinc-400"></i> Курьер
             </label>
-            <select id="fixtureAccountCourier" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-xs text-white focus:border-cyan-500/50 focus:outline-none">
+            <select id="fixtureAccountCourier" class="w-full px-2.5 py-2 text-xs">
               <option value="">Создавать нового</option>
             </select>
-            <div id="fixtureAccountCourierHint" class="text-[10px] text-slate-500 font-mono truncate"></div>
+            <div id="fixtureAccountCourierHint" class="text-[10px] text-zinc-500 font-mono truncate"></div>
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-[11px] font-semibold text-purple-400 flex items-center gap-1.5">
-              <i class="fa-solid fa-user-shield"></i> Админ
+            <label class="text-[11px] font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-user-shield text-zinc-400"></i> Админ
             </label>
-            <select id="fixtureAccountAdmin" class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-xs text-white focus:border-purple-500/50 focus:outline-none">
+            <select id="fixtureAccountAdmin" class="w-full px-2.5 py-2 text-xs">
               <option value="">Создавать нового</option>
             </select>
-            <div id="fixtureAccountAdminHint" class="text-[10px] text-slate-500 font-mono truncate"></div>
+            <div id="fixtureAccountAdminHint" class="text-[10px] text-zinc-500 font-mono truncate"></div>
           </div>
         </div>
 
@@ -628,28 +690,28 @@
         <div class="bg-darkcard border border-darkborder rounded-xl p-5 space-y-4">
           <div class="flex items-center justify-between border-b border-darkborder pb-3">
             <div class="flex items-center space-x-2.5">
-              <div class="w-7 h-7 rounded-lg bg-green-500/10 text-green-400 flex items-center justify-center text-xs">
+              <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 flex items-center justify-center text-xs">
                 <i class="fa-solid fa-mobile-screen"></i>
               </div>
               <div>
-                <h3 class="font-bold text-sm text-white">Клиенты (Clients)</h3>
-                <span id="clientCountBadge" class="text-[10px] text-slate-400">0 профилей</span>
+                <h3 class="font-semibold text-sm text-white">Клиенты (Clients)</h3>
+                <span id="clientCountBadge" class="text-[10px] text-zinc-500 font-mono">0 профилей</span>
               </div>
             </div>
-            <button onclick="generateSession(this, 'client')" title="Сгенерировать новый аккаунт клиента" class="text-xs text-green-400 hover:text-green-300 font-medium">
+            <button onclick="generateSession(this, 'client')" title="Сгенерировать новый аккаунт клиента" class="text-xs text-zinc-300 hover:text-white font-medium">
               + Создать
             </button>
           </div>
           <div id="clientProfilesList" class="space-y-2.5 max-h-64 overflow-y-auto">
-            <div class="text-xs text-slate-500 italic p-2">Нет сохраненных токенов клиентов</div>
+            <div class="text-xs text-zinc-500 italic p-2">Нет сохраненных токенов клиентов</div>
           </div>
           <!-- Inline Paste Token -->
           <div class="border-t border-darkborder pt-3 space-y-2">
-            <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Вставить JWT токен клиента</label>
+            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Вставить JWT токен клиента</label>
             <div class="flex space-x-2">
-              <input type="text" id="inlineTokenClient" placeholder="Вставьте eyJh... сюда" class="flex-1 bg-slate-900 border border-darkborder rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-yellow-300 placeholder-slate-600 focus:border-green-500/50 focus:outline-none">
-              <input type="text" id="inlineNameClient" placeholder="Имя" class="w-24 bg-slate-900 border border-darkborder rounded-lg px-2 py-1.5 text-[11px] text-white placeholder-slate-600 focus:outline-none">
-              <button onclick="inlineSaveToken(this, 'client')" title="Сохранить токен и сделать активным" class="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-[11px] font-semibold rounded-lg transition shrink-0">
+              <input type="text" id="inlineTokenClient" placeholder="Вставьте eyJh... сюда" class="flex-1 px-2.5 py-1.5 text-[11px] font-mono">
+              <input type="text" id="inlineNameClient" placeholder="Имя" class="w-24 px-2 py-1.5 text-[11px]">
+              <button onclick="inlineSaveToken(this, 'client')" title="Сохранить токен и сделать активным" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-[11px] font-medium rounded-lg transition shrink-0">
                 <i class="fa-solid fa-plus mr-1"></i>Добавить
               </button>
             </div>
@@ -660,28 +722,28 @@
         <div class="bg-darkcard border border-darkborder rounded-xl p-5 space-y-4">
           <div class="flex items-center justify-between border-b border-darkborder pb-3">
             <div class="flex items-center space-x-2.5">
-              <div class="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-xs">
+              <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 flex items-center justify-center text-xs">
                 <i class="fa-solid fa-store"></i>
               </div>
               <div>
-                <h3 class="font-bold text-sm text-white">Рестораны (Restaurants)</h3>
-                <span id="restCountBadge" class="text-[10px] text-slate-400">0 профилей</span>
+                <h3 class="font-semibold text-sm text-white">Рестораны (Restaurants)</h3>
+                <span id="restCountBadge" class="text-[10px] text-zinc-500 font-mono">0 профилей</span>
               </div>
             </div>
-            <button onclick="generateSession(this, 'rest')" title="Сгенерировать новый аккаунт ресторана" class="text-xs text-amber-400 hover:text-amber-300 font-medium">
+            <button onclick="generateSession(this, 'rest')" title="Сгенерировать новый аккаунт ресторана" class="text-xs text-zinc-300 hover:text-white font-medium">
               + Создать
             </button>
           </div>
           <div id="restProfilesList" class="space-y-2.5 max-h-64 overflow-y-auto">
-            <div class="text-xs text-slate-500 italic p-2">Нет сохраненных токенов ресторанов</div>
+            <div class="text-xs text-zinc-500 italic p-2">Нет сохраненных токенов ресторанов</div>
           </div>
           <!-- Inline Paste Token -->
           <div class="border-t border-darkborder pt-3 space-y-2">
-            <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Вставить JWT токен ресторана</label>
+            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Вставить JWT токен ресторана</label>
             <div class="flex space-x-2">
-              <input type="text" id="inlineTokenRest" placeholder="Вставьте eyJh... сюда" class="flex-1 bg-slate-900 border border-darkborder rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-yellow-300 placeholder-slate-600 focus:border-amber-500/50 focus:outline-none">
-              <input type="text" id="inlineNameRest" placeholder="Имя" class="w-24 bg-slate-900 border border-darkborder rounded-lg px-2 py-1.5 text-[11px] text-white placeholder-slate-600 focus:outline-none">
-              <button onclick="inlineSaveToken(this, 'rest')" title="Сохранить токен и сделать активным" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-semibold rounded-lg transition shrink-0">
+              <input type="text" id="inlineTokenRest" placeholder="Вставьте eyJh... сюда" class="flex-1 px-2.5 py-1.5 text-[11px] font-mono">
+              <input type="text" id="inlineNameRest" placeholder="Имя" class="w-24 px-2 py-1.5 text-[11px]">
+              <button onclick="inlineSaveToken(this, 'rest')" title="Сохранить токен и сделать активным" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-[11px] font-medium rounded-lg transition shrink-0">
                 <i class="fa-solid fa-plus mr-1"></i>Добавить
               </button>
             </div>
@@ -692,28 +754,28 @@
         <div class="bg-darkcard border border-darkborder rounded-xl p-5 space-y-4">
           <div class="flex items-center justify-between border-b border-darkborder pb-3">
             <div class="flex items-center space-x-2.5">
-              <div class="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-xs">
+              <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 flex items-center justify-center text-xs">
                 <i class="fa-solid fa-person-biking"></i>
               </div>
               <div>
-                <h3 class="font-bold text-sm text-white">Курьеры (Couriers)</h3>
-                <span id="courierCountBadge" class="text-[10px] text-slate-400">0 профилей</span>
+                <h3 class="font-semibold text-sm text-white">Курьеры (Couriers)</h3>
+                <span id="courierCountBadge" class="text-[10px] text-zinc-500 font-mono">0 профилей</span>
               </div>
             </div>
-            <button onclick="generateSession(this, 'courier')" title="Сгенерировать новый аккаунт курьера" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium">
+            <button onclick="generateSession(this, 'courier')" title="Сгенерировать новый аккаунт курьера" class="text-xs text-zinc-300 hover:text-white font-medium">
               + Создать
             </button>
           </div>
           <div id="courierProfilesList" class="space-y-2.5 max-h-64 overflow-y-auto">
-            <div class="text-xs text-slate-500 italic p-2">Нет сохраненных токенов курьеров</div>
+            <div class="text-xs text-zinc-500 italic p-2">Нет сохраненных токенов курьеров</div>
           </div>
           <!-- Inline Paste Token -->
           <div class="border-t border-darkborder pt-3 space-y-2">
-            <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Вставить JWT токен курьера</label>
+            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Вставить JWT токен курьера</label>
             <div class="flex space-x-2">
-              <input type="text" id="inlineTokenCourier" placeholder="Вставьте eyJh... сюда" class="flex-1 bg-slate-900 border border-darkborder rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-yellow-300 placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none">
-              <input type="text" id="inlineNameCourier" placeholder="Имя" class="w-24 bg-slate-900 border border-darkborder rounded-lg px-2 py-1.5 text-[11px] text-white placeholder-slate-600 focus:outline-none">
-              <button onclick="inlineSaveToken(this, 'courier')" title="Сохранить токен и сделать активным" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-semibold rounded-lg transition shrink-0">
+              <input type="text" id="inlineTokenCourier" placeholder="Вставьте eyJh... сюда" class="flex-1 px-2.5 py-1.5 text-[11px] font-mono">
+              <input type="text" id="inlineNameCourier" placeholder="Имя" class="w-24 px-2 py-1.5 text-[11px]">
+              <button onclick="inlineSaveToken(this, 'courier')" title="Сохранить токен и сделать активным" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-[11px] font-medium rounded-lg transition shrink-0">
                 <i class="fa-solid fa-plus mr-1"></i>Добавить
               </button>
             </div>
@@ -724,44 +786,42 @@
         <div class="bg-darkcard border border-darkborder rounded-xl p-5 space-y-4">
           <div class="flex items-center justify-between border-b border-darkborder pb-3">
             <div class="flex items-center space-x-2.5">
-              <div class="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center text-xs">
+              <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 flex items-center justify-center text-xs">
                 <i class="fa-solid fa-crown"></i>
               </div>
               <div>
-                <h3 class="font-bold text-sm text-white">Администраторы &amp; Директоры</h3>
-                <span id="adminCountBadge" class="text-[10px] text-slate-400">0 профилей</span>
+                <h3 class="font-semibold text-sm text-white">Администраторы &amp; Директоры</h3>
+                <span id="adminCountBadge" class="text-[10px] text-zinc-500 font-mono">0 профилей</span>
               </div>
             </div>
-            <button onclick="generateSession(this, 'admin')" title="Логин директора через API" class="text-xs text-purple-400 hover:text-purple-300 font-medium">
+            <button onclick="generateSession(this, 'admin')" title="Логин директора через API" class="text-xs text-zinc-300 hover:text-white font-medium">
               + Логин
             </button>
           </div>
           <div id="adminProfilesList" class="space-y-2.5 max-h-64 overflow-y-auto">
-            <div class="text-xs text-slate-500 italic p-2">Нет сохраненных токенов админа</div>
+            <div class="text-xs text-zinc-500 italic p-2">Нет сохраненных токенов админа</div>
           </div>
         </div>
 
       </div>
-    </section>
+    </div>
 
-    <!-- ================================================== -->
-    <!-- TAB 6: TOOLS (State Machine + API Playground)       -->
-    <!-- ================================================== -->
-    <section id="view-tools" class="tab-view hidden space-y-6">
+    <!-- 3. SUB-VIEW: SPEC -->
+    <div id="tools-subview-spec" class="tools-subview hidden space-y-6">
 
       <!-- ======================= API SPEC IMPORT ======================= -->
       <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-5">
         <div class="flex items-start justify-between gap-3 flex-wrap">
           <div class="min-w-0">
-            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
-              <i class="fa-solid fa-book-open text-emerald-400"></i>
-              <span>📖 Спецификация API</span>
+            <h2 class="text-base font-semibold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-book-open text-zinc-400"></i>
+              <span>Спецификация API</span>
             </h2>
-            <p class="text-xs text-slate-400 mt-1">Импорт OpenAPI-спеки стенда: движок разберёт эндпоинты и создаст смоук-сценарии spec_smoke_* в реестре тестов.</p>
+            <p class="text-xs text-zinc-400 mt-1">Импорт OpenAPI-спеки стенда: движок разберёт эндпоинты и создаст смоук-сценарии spec_smoke_* в реестре тестов.</p>
           </div>
           <!-- Строка состояния спеки: точка + описание + действия (рендерит js/spec.js) -->
-          <div id="specStatus" class="flex items-center gap-2.5 flex-wrap text-xs text-slate-400">
-            <span class="w-2 h-2 rounded-full bg-slate-600 shrink-0"></span>
+          <div id="specStatus" class="flex items-center gap-2.5 flex-wrap text-xs text-zinc-400">
+            <span class="w-2 h-2 rounded-full bg-zinc-600 shrink-0"></span>
             <span>Спецификация не загружена</span>
           </div>
         </div>
@@ -770,10 +830,10 @@
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <input type="url" id="specImportUrl" placeholder="https://r1.loca-li.com/api/openapi.json"
             onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('specImportBtn').click();}"
-            class="flex-1 min-w-0 bg-slate-900 border border-darkborder rounded-lg px-3 py-2 font-mono text-xs text-white placeholder-slate-600 focus:border-emerald-500/50 focus:outline-none">
+            class="flex-1 min-w-0 px-3 py-2 font-mono text-xs">
           <button id="specImportBtn" onclick="importSpec(this)" title="Загрузить спеку по URL и сгенерировать смоук-сценарии"
-            class="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2 shrink-0 shadow-lg shadow-emerald-600/20">
-            📥 Импортировать
+            class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg transition flex items-center justify-center gap-2 shrink-0 shadow-sm">
+            <i class="fa-solid fa-download"></i><span>Импортировать</span>
           </button>
         </div>
 
@@ -789,60 +849,64 @@
         <!-- Ошибка импорта/сервера (текст от бэкенда при 400) -->
         <div id="specErrorBox" class="hidden px-3.5 py-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-300 font-mono break-all whitespace-pre-wrap"></div>
       </div>
+    </div>
+
+    <!-- 4. SUB-VIEW: STATE MACHINE -->
+    <div id="tools-subview-statemachine" class="tools-subview hidden space-y-6">
 
       <!-- State Machine Visualizer -->
       <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-6">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
-            <i class="fa-solid fa-diagram-project text-blue-400"></i>
+          <h2 class="text-base font-semibold text-white flex items-center space-x-2">
+            <i class="fa-solid fa-diagram-project text-zinc-400"></i>
             <span>Визуализатор State Machine заказа</span>
           </h2>
-          <p class="text-xs text-slate-400 mt-1">Интерактивный граф жизненного цикла заказа: активный узел подсвечивается зелёным во время прогона.</p>
+          <p class="text-xs text-zinc-400 mt-1">Интерактивный граф жизненного цикла заказа: активный узел подсвечивается во время прогона.</p>
         </div>
 
         <!-- Graph Nodes -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4">
 
-          <div id="node-NEW" class="sm-node p-3 rounded-xl border border-darkborder bg-slate-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
-            <span class="w-8 h-8 rounded-full bg-slate-800 text-green-400 flex items-center justify-center font-bold text-sm">1</span>
-            <div class="font-bold text-xs text-white">NEW</div>
-            <div class="text-[10px] text-slate-400">Клиент создает заказ</div>
-            <span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Client</span>
+          <div id="node-NEW" class="sm-node p-3 rounded-xl border border-darkborder bg-zinc-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
+            <span class="w-8 h-8 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center font-bold font-mono text-xs">1</span>
+            <div class="font-semibold text-xs text-white">NEW</div>
+            <div class="text-[10px] text-zinc-400">Клиент создает заказ</div>
+            <span class="text-[9px] font-mono bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700">Client</span>
           </div>
 
-          <div id="node-COURIER_ASSIGNED" class="sm-node p-3 rounded-xl border border-darkborder bg-slate-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
-            <span class="w-8 h-8 rounded-full bg-slate-800 text-blue-400 flex items-center justify-center font-bold text-sm">2</span>
-            <div class="font-bold text-xs text-white">COURIER_ASSIGNED</div>
-            <div class="text-[10px] text-slate-400">Назначен курьер</div>
-            <span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Director</span>
+          <div id="node-COURIER_ASSIGNED" class="sm-node p-3 rounded-xl border border-darkborder bg-zinc-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
+            <span class="w-8 h-8 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center font-bold font-mono text-xs">2</span>
+            <div class="font-semibold text-xs text-white">COURIER_ASSIGNED</div>
+            <div class="text-[10px] text-zinc-400">Назначен курьер</div>
+            <span class="text-[9px] font-mono bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700">Director</span>
           </div>
 
-          <div id="node-PREPARING" class="sm-node p-3 rounded-xl border border-darkborder bg-slate-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
-            <span class="w-8 h-8 rounded-full bg-slate-800 text-amber-400 flex items-center justify-center font-bold text-sm">3</span>
-            <div class="font-bold text-xs text-white">PREPARING</div>
-            <div class="text-[10px] text-slate-400">Готовится в ресторане</div>
-            <span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Restaurant</span>
+          <div id="node-PREPARING" class="sm-node p-3 rounded-xl border border-darkborder bg-zinc-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
+            <span class="w-8 h-8 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center font-bold font-mono text-xs">3</span>
+            <div class="font-semibold text-xs text-white">PREPARING</div>
+            <div class="text-[10px] text-zinc-400">Готовится в ресторане</div>
+            <span class="text-[9px] font-mono bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700">Restaurant</span>
           </div>
 
-          <div id="node-READY_FOR_PICKUP" class="sm-node p-3 rounded-xl border border-darkborder bg-slate-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
-            <span class="w-8 h-8 rounded-full bg-slate-800 text-purple-400 flex items-center justify-center font-bold text-sm">4</span>
-            <div class="font-bold text-xs text-white">READY_FOR_PICKUP</div>
-            <div class="text-[10px] text-slate-400">Готов к выдаче</div>
-            <span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Restaurant</span>
+          <div id="node-READY_FOR_PICKUP" class="sm-node p-3 rounded-xl border border-darkborder bg-zinc-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
+            <span class="w-8 h-8 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center font-bold font-mono text-xs">4</span>
+            <div class="font-semibold text-xs text-white">READY_FOR_PICKUP</div>
+            <div class="text-[10px] text-zinc-400">Готов к выдаче</div>
+            <span class="text-[9px] font-mono bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700">Restaurant</span>
           </div>
 
-          <div id="node-PICKED_UP" class="sm-node p-3 rounded-xl border border-darkborder bg-slate-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
-            <span class="w-8 h-8 rounded-full bg-slate-800 text-cyan-400 flex items-center justify-center font-bold text-sm">5</span>
-            <div class="font-bold text-xs text-white">PICKED_UP</div>
-            <div class="text-[10px] text-slate-400">Курьер везет заказ</div>
-            <span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Courier</span>
+          <div id="node-PICKED_UP" class="sm-node p-3 rounded-xl border border-darkborder bg-zinc-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
+            <span class="w-8 h-8 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center font-bold font-mono text-xs">5</span>
+            <div class="font-semibold text-xs text-white">PICKED_UP</div>
+            <div class="text-[10px] text-zinc-400">Курьер везет заказ</div>
+            <span class="text-[9px] font-mono bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700">Courier</span>
           </div>
 
-          <div id="node-DELIVERED" class="sm-node p-3 rounded-xl border border-darkborder bg-slate-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
-            <span class="w-8 h-8 rounded-full bg-slate-800 text-emerald-400 flex items-center justify-center font-bold text-sm">6</span>
-            <div class="font-bold text-xs text-white">DELIVERED</div>
-            <div class="text-[10px] text-slate-400">Доставлен клиенту</div>
-            <span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">Courier</span>
+          <div id="node-DELIVERED" class="sm-node p-3 rounded-xl border border-darkborder bg-zinc-900/80 flex flex-col items-center text-center space-y-2 transition duration-300">
+            <span class="w-8 h-8 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center font-bold font-mono text-xs">6</span>
+            <div class="font-semibold text-xs text-white">DELIVERED</div>
+            <div class="text-[10px] text-zinc-400">Доставлен клиенту</div>
+            <span class="text-[9px] font-mono bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700">Courier</span>
           </div>
 
         </div>
@@ -860,42 +924,46 @@
                   <th class="p-2 border-b border-darkborder">Запрещенные прямые прыжки</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-darkborder text-slate-400">
+              <tbody class="divide-y divide-darkborder text-zinc-400">
                 <tr>
-                  <td class="p-2 font-mono text-green-400 font-semibold">NEW</td>
-                  <td class="p-2 font-mono">COURIER_ASSIGNED, PREPARING, CANCELLED</td>
+                  <td class="p-2 font-mono text-zinc-200 font-semibold">NEW</td>
+                  <td class="p-2 font-mono text-zinc-300">COURIER_ASSIGNED, PREPARING, CANCELLED</td>
                   <td class="p-2">ADMIN, COURIER, RESTAURANT</td>
                   <td class="p-2 text-red-400 font-mono">DELIVERED, PICKED_UP</td>
                 </tr>
                 <tr>
-                  <td class="p-2 font-mono text-blue-400 font-semibold">COURIER_ASSIGNED</td>
-                  <td class="p-2 font-mono">PREPARING, PICKED_UP, CANCELLED</td>
+                  <td class="p-2 font-mono text-zinc-200 font-semibold">COURIER_ASSIGNED</td>
+                  <td class="p-2 font-mono text-zinc-300">PREPARING, PICKED_UP, CANCELLED</td>
                   <td class="p-2">RESTAURANT, COURIER</td>
                   <td class="p-2 text-red-400 font-mono">DELIVERED</td>
                 </tr>
                 <tr>
-                  <td class="p-2 font-mono text-amber-400 font-semibold">PREPARING</td>
-                  <td class="p-2 font-mono">READY_FOR_PICKUP, CANCELLED</td>
+                  <td class="p-2 font-mono text-zinc-200 font-semibold">PREPARING</td>
+                  <td class="p-2 font-mono text-zinc-300">READY_FOR_PICKUP, CANCELLED</td>
                   <td class="p-2">RESTAURANT</td>
                   <td class="p-2 text-red-400 font-mono">DELIVERED, PICKED_UP</td>
                 </tr>
                 <tr>
-                  <td class="p-2 font-mono text-purple-400 font-semibold">READY_FOR_PICKUP</td>
-                  <td class="p-2 font-mono">PICKED_UP, CANCELLED</td>
+                  <td class="p-2 font-mono text-zinc-200 font-semibold">READY_FOR_PICKUP</td>
+                  <td class="p-2 font-mono text-zinc-300">PICKED_UP, CANCELLED</td>
                   <td class="p-2">COURIER, RESTAURANT</td>
                   <td class="p-2 text-red-400 font-mono">DELIVERED</td>
                 </tr>
                 <tr>
-                  <td class="p-2 font-mono text-cyan-400 font-semibold">PICKED_UP</td>
-                  <td class="p-2 font-mono">DELIVERED, CANCELLED</td>
+                  <td class="p-2 font-mono text-zinc-200 font-semibold">PICKED_UP</td>
+                  <td class="p-2 font-mono text-zinc-300">DELIVERED, CANCELLED</td>
                   <td class="p-2">COURIER, ADMIN</td>
-                  <td class="p-2 text-slate-500 font-mono">—</td>
+                  <td class="p-2 text-zinc-500 font-mono">—</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- 5. SUB-VIEW: API PLAYGROUND -->
+    <div id="tools-subview-playground" class="tools-subview hidden space-y-6">
 
       <!-- API Playground -->
       <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-6">
@@ -907,8 +975,8 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="space-y-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Действие</label>
-              <select id="playAction" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2.5 text-xs text-white">
+              <label class="block text-xs font-semibold mb-1">Действие</label>
+              <select id="playAction" class="w-full p-2.5 text-xs">
                 <option value="create_order">Клиент: Создать заказ в ресторане (POST /api/clients/create-order)</option>
                 <option value="assign_courier">Директор: Назначить курьера на заказ (POST /api/admin/give-order-to-courier)</option>
                 <option value="change_rest_status">Ресторан: Изменить статус блюда (POST /api/rests/order-status)</option>
@@ -917,13 +985,13 @@
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Order ID</label>
-              <input type="text" id="playOrderId" placeholder="UUID заказа" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-xs font-mono text-white">
+              <label class="block text-xs font-semibold mb-1">Order ID</label>
+              <input type="text" id="playOrderId" placeholder="UUID заказа" class="w-full p-2 text-xs font-mono">
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Статус (если применимо)</label>
-              <select id="playStatus" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-xs text-white">
+              <label class="block text-xs font-semibold mb-1">Статус (если применимо)</label>
+              <select id="playStatus" class="w-full p-2 text-xs">
                 <option value="cooking">cooking (Готовится)</option>
                 <option value="cooked">cooked (Готов к выдаче)</option>
                 <option value="shipping">shipping (В пути)</option>
@@ -932,18 +1000,19 @@
               </select>
             </div>
 
-            <button onclick="executePlaygroundAction(this)" class="w-full py-2.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg transition">
+            <button onclick="executePlaygroundAction(this)" class="w-full py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold text-xs rounded-lg transition shadow-sm">
               <i class="fa-solid fa-paper-plane mr-2"></i> Отправить запрос
             </button>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Ответ сервера</label>
-            <pre id="playResponse" class="w-full h-64 bg-slate-950 border border-darkborder rounded-lg p-3 text-xs font-mono text-green-400 overflow-auto">// Ответ появится здесь...</pre>
+            <label class="block text-xs font-semibold text-zinc-300 mb-1">Ответ сервера</label>
+            <pre id="playResponse" class="w-full h-64 bg-zinc-950 border border-darkborder rounded-lg p-3 text-xs font-mono text-zinc-200 overflow-auto">// Ответ появится здесь...</pre>
           </div>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
   </main>
 
@@ -953,17 +1022,17 @@
   <div id="addTokenModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-darkcard border border-darkborder rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between border-b border-darkborder pb-3">
-        <h3 class="font-bold text-white text-base flex items-center space-x-2">
-          <i class="fa-solid fa-key text-green-400"></i>
+        <h3 class="font-semibold text-white text-base flex items-center space-x-2">
+          <i class="fa-solid fa-key text-zinc-400"></i>
           <span>Вставить JWT токен вручную</span>
         </h3>
-        <button onclick="closeAddTokenModal()" title="Закрыть" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeAddTokenModal()" title="Закрыть" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Роль актора</label>
-          <select id="addTokenRole" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+          <label class="block font-semibold mb-1">Роль актора</label>
+          <select id="addTokenRole" class="w-full p-2">
             <option value="client">Клиент (Client)</option>
             <option value="rest">Ресторан (Restaurant)</option>
             <option value="courier">Курьер (Courier)</option>
@@ -972,29 +1041,29 @@
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Название профиля / Метка</label>
-          <input type="text" id="addTokenName" placeholder="например: VIP Клиент или Главный Ресторан" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+          <label class="block font-semibold mb-1">Название профиля / Метка</label>
+          <input type="text" id="addTokenName" placeholder="например: VIP Клиент или Главный Ресторан" class="w-full p-2">
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Идентификатор (Телефон / Логин / UUID)</label>
-          <input type="text" id="addTokenIdentifier" placeholder="+79991234567 или rest_burger" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white">
+          <label class="block font-semibold mb-1">Идентификатор (Телефон / Логин / UUID)</label>
+          <input type="text" id="addTokenIdentifier" placeholder="+79991234567 или rest_burger" class="w-full p-2 font-mono">
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">JWT Bearer Token</label>
-          <textarea id="addTokenValue" rows="3" placeholder="eyJh..." class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-[11px] text-yellow-300"></textarea>
+          <label class="block font-semibold mb-1">JWT Bearer Token</label>
+          <textarea id="addTokenValue" rows="3" placeholder="eyJh..." class="w-full p-2 font-mono text-[11px]"></textarea>
         </div>
 
         <div class="flex items-center space-x-2">
-          <input type="checkbox" id="addTokenSetActive" checked class="rounded border-darkborder bg-slate-900 text-green-500">
-          <label for="addTokenSetActive" class="text-slate-300">Сделать этот токен активным для тестов</label>
+          <input type="checkbox" id="addTokenSetActive" checked class="rounded">
+          <label for="addTokenSetActive">Сделать этот токен активным для тестов</label>
         </div>
       </div>
 
       <div class="flex justify-end space-x-2 pt-2 border-t border-darkborder">
-        <button onclick="closeAddTokenModal()" class="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">Отмена</button>
-        <button onclick="submitAddToken(this)" class="px-4 py-2 text-xs bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold rounded-lg">Сохранить токен</button>
+        <button onclick="closeAddTokenModal()" class="px-4 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg">Отмена</button>
+        <button onclick="submitAddToken(this)" class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg shadow-sm">Сохранить токен</button>
       </div>
     </div>
   </div>
@@ -1003,17 +1072,17 @@
   <div id="quickAuthModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-darkcard border border-darkborder rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between border-b border-darkborder pb-3">
-        <h3 class="font-bold text-white text-base flex items-center space-x-2">
-          <i class="fa-solid fa-right-to-bracket text-blue-400"></i>
+        <h3 class="font-semibold text-white text-base flex items-center space-x-2">
+          <i class="fa-solid fa-arrow-right-to-bracket text-zinc-400"></i>
           <span>Быстрая авторизация через API (Login)</span>
         </h3>
-        <button onclick="closeQuickAuthModal()" title="Закрыть" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeQuickAuthModal()" title="Закрыть" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Роль</label>
-          <select id="quickAuthRole" onchange="toggleQuickAuthFields()" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+          <label class="block font-semibold mb-1">Роль</label>
+          <select id="quickAuthRole" onchange="toggleQuickAuthFields()" class="w-full p-2">
             <option value="client">Клиент — по номеру телефона</option>
             <option value="rest">Ресторан — логин и пароль</option>
             <option value="courier">Курьер — телефон и пароль</option>
@@ -1022,27 +1091,27 @@
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Название профиля</label>
-          <input type="text" id="quickAuthProfileName" placeholder="например: Бургер Кинг Центр" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+          <label class="block font-semibold mb-1">Название профиля</label>
+          <input type="text" id="quickAuthProfileName" placeholder="например: Бургер Кинг Центр" class="w-full p-2">
         </div>
 
         <div id="fieldLoginGroup">
-          <label class="block font-semibold text-slate-300 mb-1">Логин / Телефон</label>
-          <input type="text" id="quickAuthLogin" placeholder="Логин директора" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white">
+          <label class="block font-semibold mb-1">Логин / Телефон</label>
+          <input type="text" id="quickAuthLogin" placeholder="Логин директора" class="w-full p-2 font-mono">
         </div>
 
         <div id="fieldPasswordGroup">
-          <label class="block font-semibold text-slate-300 mb-1" id="quickAuthPasswordLabel">Пароль / SMS Код</label>
-          <input type="password" id="quickAuthPassword" placeholder="Пароль" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white">
-          <p id="quickAuthPasswordHint" class="hidden text-[10px] text-slate-500 mt-1 leading-snug">
+          <label class="block font-semibold mb-1" id="quickAuthPasswordLabel">Пароль / SMS Код</label>
+          <input type="password" id="quickAuthPassword" placeholder="Пароль" class="w-full p-2 font-mono">
+          <p id="quickAuthPasswordHint" class="hidden text-[10px] text-zinc-500 mt-1 leading-snug">
             Можно оставить пустым: на стенде с DEBUG=true система сама запросит код и войдёт по нему.
           </p>
         </div>
       </div>
 
       <div class="flex justify-end space-x-2 pt-2 border-t border-darkborder">
-        <button onclick="closeQuickAuthModal()" class="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">Отмена</button>
-        <button onclick="submitQuickAuth(this)" class="px-4 py-2 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-lg">Получить токен</button>
+        <button onclick="closeQuickAuthModal()" class="px-4 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg">Отмена</button>
+        <button onclick="submitQuickAuth(this)" class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg shadow-sm">Получить токен</button>
       </div>
     </div>
   </div>
@@ -1051,34 +1120,34 @@
   <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-darkcard border border-darkborder rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between border-b border-darkborder pb-3">
-        <h3 class="font-bold text-white text-base flex items-center space-x-2">
-          <i class="fa-solid fa-sliders text-green-400"></i>
+        <h3 class="font-semibold text-white text-base flex items-center space-x-2">
+          <i class="fa-solid fa-sliders text-zinc-400"></i>
           <span>Настройки стенда &amp; Окружения</span>
         </h3>
-        <button onclick="closeConfigModal()" title="Закрыть" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeConfigModal()" title="Закрыть" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Target Base URL (Бэкенд доставки)</label>
-          <input type="text" id="cfgBaseUrl" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white text-xs">
-          <p class="text-[10px] text-slate-500 mt-1">Пример: http://localhost:3005 или http://host.docker.internal:3005</p>
+          <label class="block font-semibold mb-1">Target Base URL (Бэкенд доставки)</label>
+          <input type="text" id="cfgBaseUrl" class="w-full p-2 font-mono text-xs">
+          <p class="text-[10px] text-zinc-500 mt-1">Пример: http://localhost:3005 или http://host.docker.internal:3005</p>
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Admin Login (Директор)</label>
-          <input type="text" id="cfgAdminLogin" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white text-xs">
+          <label class="block font-semibold mb-1">Admin Login (Директор)</label>
+          <input type="text" id="cfgAdminLogin" class="w-full p-2 font-mono text-xs">
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Admin Password</label>
-          <input type="password" id="cfgAdminPassword" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white text-xs">
+          <label class="block font-semibold mb-1">Admin Password</label>
+          <input type="password" id="cfgAdminPassword" class="w-full p-2 font-mono text-xs">
         </div>
       </div>
 
       <div class="flex justify-end space-x-2 pt-2 border-t border-darkborder">
-        <button onclick="closeConfigModal()" class="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">Отмена</button>
-        <button onclick="saveConfig(this)" class="px-4 py-2 text-xs bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold rounded-lg">Сохранить</button>
+        <button onclick="closeConfigModal()" class="px-4 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg">Отмена</button>
+        <button onclick="saveConfig(this)" class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg shadow-sm">Сохранить</button>
       </div>
     </div>
   </div>
@@ -1087,32 +1156,32 @@
   <div id="standsModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="if(event.target===this) closeStandsModal()">
     <div class="bg-darkcard border border-darkborder rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col">
       <div class="flex items-center justify-between border-b border-darkborder p-5 shrink-0">
-        <h3 class="font-bold text-white text-base flex items-center space-x-2">
-          <i class="fa-solid fa-server text-emerald-400"></i>
+        <h3 class="font-semibold text-white text-base flex items-center space-x-2">
+          <i class="fa-solid fa-server text-zinc-400"></i>
           <span>Управление стендами</span>
         </h3>
-        <button onclick="closeStandsModal()" title="Закрыть" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeStandsModal()" title="Закрыть" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="p-5 space-y-5 overflow-y-auto text-xs flex-1">
         <div class="space-y-1">
-          <p class="text-[11px] text-slate-500 leading-relaxed">У каждого стенда своё хранилище токенов — переключение стенда подменяет наборы токенов ролей.</p>
-          <p class="text-[11px] text-slate-500 leading-relaxed"><i class="fa-solid fa-key mr-1 text-slate-600"></i>Код верификации клиента теперь вводится вручную во время прогона (модалка появится автоматически, когда код придёт в Telegram-группу)</p>
+          <p class="text-[11px] text-zinc-500 leading-relaxed">У каждого стенда своё хранилище токенов — переключение стенда подменяет наборы токенов ролей.</p>
+          <p class="text-[11px] text-zinc-500 leading-relaxed"><i class="fa-solid fa-key mr-1 text-zinc-600"></i>Код верификации клиента теперь вводится вручную во время прогона (модалка появится автоматически, когда код придёт в Telegram-группу)</p>
         </div>
         <!-- Карточки стендов (рендерит stands.js) -->
         <div id="standsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="md:col-span-2 py-6 text-center text-slate-500 italic">Загрузка...</div>
+          <div class="md:col-span-2 py-6 text-center text-zinc-500 italic">Загрузка...</div>
         </div>
 
         <!-- Форма добавления / редактирования -->
-        <div id="standFormBox" class="border border-darkborder rounded-xl bg-slate-900/60 p-4 space-y-3 transition">
+        <div id="standFormBox" class="border border-darkborder rounded-xl bg-zinc-900/60 p-4 space-y-3 transition">
           <div class="flex items-center justify-between gap-2">
-            <h4 class="font-bold text-white text-sm flex items-center gap-2">
-              <i id="standFormTitleIcon" class="fa-solid fa-plus text-green-400"></i>
+            <h4 class="font-semibold text-white text-sm flex items-center gap-2">
+              <i id="standFormTitleIcon" class="fa-solid fa-plus text-zinc-400"></i>
               <span id="standFormTitleText">Новый стенд</span>
             </h4>
             <button id="standCancelEditBtn" onclick="cancelStandEdit()" title="Вернуться к добавлению нового стенда"
-              class="hidden px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 border border-darkborder rounded-lg transition">
+              class="hidden px-2 py-1 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-darkborder rounded-lg transition">
               <i class="fa-solid fa-xmark mr-1"></i>Отменить редактирование
             </button>
           </div>
@@ -1121,22 +1190,28 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label for="standName" class="block font-semibold text-slate-300 mb-1">Name <span class="text-red-400">*</span></label>
+              <label for="standName" class="block font-semibold mb-1">Name <span class="text-red-400">*</span></label>
               <input type="text" id="standName" placeholder="Мой локальный стенд"
-                class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 text-white placeholder-slate-600 focus:border-green-500/50 focus:outline-none">
+                class="w-full px-2.5 py-2">
             </div>
             <div>
-              <label for="standBaseUrl" class="block font-semibold text-slate-300 mb-1">Base URL <span class="text-red-400">*</span></label>
+              <label for="standBaseUrl" class="block font-semibold mb-1">Base URL <span class="text-red-400">*</span></label>
               <input type="text" id="standBaseUrl" placeholder="http://localhost:3000"
-                class="w-full bg-slate-900 border border-darkborder rounded-lg px-2.5 py-2 font-mono text-white placeholder-slate-600 focus:border-green-500/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60">
+                class="w-full px-2.5 py-2 font-mono disabled:cursor-not-allowed disabled:opacity-60">
               <p id="standBaseUrlHint" class="hidden text-[10px] text-amber-400 mt-1"><i class="fa-solid fa-lock mr-1"></i>Мок-стенду нельзя менять Base URL</p>
+            </div>
+            <div class="sm:col-span-2">
+              <label for="standSwaggerUrl" class="block font-semibold mb-1">Swagger / OpenAPI URL или путь к файлу</label>
+              <input type="text" id="standSwaggerUrl" placeholder="https://r1.loca-li.com/api/docs/swagger.json или /backend/swagger-output.json"
+                class="w-full px-2.5 py-2 font-mono text-xs">
+              <p class="text-[10px] text-zinc-500 mt-1">Позволяет стягивать спецификацию и автоматически создавать тесты ручек для этого стенда.</p>
             </div>
           </div>
 
           <div class="flex items-center justify-between gap-2 pt-1">
-            <p class="text-[10px] text-slate-500 hidden sm:block">Активный стенд определяет, куда движок шлёт запросы.</p>
+            <p class="text-[10px] text-zinc-500 hidden sm:block">Активный стенд определяет, куда движок шлёт запросы.</p>
             <button onclick="submitStandForm(this)"
-              class="ml-auto px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold rounded-lg transition flex items-center gap-2 shadow-lg shadow-green-600/20">
+              class="ml-auto px-4 py-2 bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg transition flex items-center gap-2 shadow-sm">
               <i class="fa-solid fa-floppy-disk"></i><span id="standSubmitLabel">Добавить стенд</span>
             </button>
           </div>
@@ -1149,26 +1224,26 @@
   <div id="inputCodeModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[90] hidden flex items-center justify-center p-4" onclick="if(event.target===this) closeInputCodeModal()">
     <div class="bg-darkcard border border-darkborder rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl pop-in">
       <div class="flex items-center justify-between border-b border-darkborder pb-3">
-        <h3 class="font-bold text-white text-base flex items-center space-x-2">
-          <i class="fa-solid fa-key text-yellow-400"></i>
+        <h3 class="font-semibold text-white text-base flex items-center space-x-2">
+          <i class="fa-solid fa-key text-zinc-400"></i>
           <span>Код верификации</span>
         </h3>
-        <button onclick="closeInputCodeModal()" title="Закрыть" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeInputCodeModal()" title="Закрыть" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <p class="text-xs text-slate-300 leading-relaxed">Введите код, который пришёл в Telegram-группу для номера <b id="inputCodePhone" class="text-white font-bold break-all">—</b></p>
+      <p class="text-xs text-zinc-300 leading-relaxed">Введите код, который пришёл в Telegram-группу для номера <b id="inputCodePhone" class="text-white font-bold break-all">—</b></p>
 
       <div>
         <input type="text" id="inputCodeValue" inputmode="numeric" maxlength="8" placeholder="123456" autocomplete="one-time-code"
           oninput="this.value=this.value.replace(/\D/g,'')"
           onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('inputCodeSubmitBtn').click();}"
-          class="w-full bg-slate-900 border border-darkborder rounded-lg px-3 py-2.5 text-center text-lg font-mono tracking-[0.4em] text-white placeholder-slate-600 focus:border-yellow-500/50 focus:outline-none">
-        <p class="text-[10px] text-slate-500 mt-2"><i class="fa-solid fa-hourglass-half mr-1 text-amber-400"></i>Прогон приостановлен и ждёт код (таймаут 3 минуты)</p>
+          class="w-full px-3 py-2.5 text-center text-lg font-mono tracking-[0.4em]">
+        <p class="text-[10px] text-zinc-500 mt-2"><i class="fa-solid fa-hourglass-half mr-1 text-zinc-400"></i>Прогон приостановлен и ждёт код (таймаут 3 минуты)</p>
       </div>
 
       <div class="flex justify-end space-x-2 pt-2 border-t border-darkborder">
-        <button onclick="cancelInputCode()" class="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">Отмена</button>
-        <button id="inputCodeSubmitBtn" onclick="submitInputCode(this)" class="px-4 py-2 text-xs bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold rounded-lg transition">Отправить код</button>
+        <button onclick="cancelInputCode()" class="px-4 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg">Отмена</button>
+        <button id="inputCodeSubmitBtn" onclick="submitInputCode(this)" class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg shadow-sm transition">Отправить код</button>
       </div>
     </div>
   </div>
@@ -1177,17 +1252,17 @@
   <div id="registerModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-darkcard border border-darkborder rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-darkborder pb-3">
-        <h3 class="font-bold text-white text-base flex items-center space-x-2">
-          <i class="fa-solid fa-user-plus text-emerald-400"></i>
+        <h3 class="font-semibold text-white text-base flex items-center space-x-2">
+          <i class="fa-solid fa-user-plus text-zinc-400"></i>
           <span>Создать / Зарегистрировать аккаунт &amp; Токен</span>
         </h3>
-        <button onclick="closeRegisterModal()" title="Закрыть" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeRegisterModal()" title="Закрыть" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Роль актора</label>
-          <select id="regRole" onchange="toggleRegisterFields()" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+          <label class="block font-semibold mb-1">Роль актора</label>
+          <select id="regRole" onchange="toggleRegisterFields()" class="w-full p-2">
             <option value="rest">Ресторан (Restaurant)</option>
             <option value="courier">Курьер (Courier)</option>
             <option value="client">Клиент (Client)</option>
@@ -1196,52 +1271,52 @@
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Название профиля (Метка в Vault)</label>
-          <input type="text" id="regProfileName" placeholder="например: Ресторан Пицца 24/7" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+          <label class="block font-semibold mb-1">Название профиля (Метка в Vault)</label>
+          <input type="text" id="regProfileName" placeholder="например: Ресторан Пицца 24/7" class="w-full p-2">
         </div>
 
         <!-- Restaurant specific fields -->
         <div id="regFieldRestName" class="reg-field-group">
-          <label class="block font-semibold text-slate-300 mb-1">Название ресторана (RestName)</label>
-          <input type="text" id="regRestName" placeholder="Pizza Express" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+          <label class="block font-semibold mb-1">Название ресторана (RestName)</label>
+          <input type="text" id="regRestName" placeholder="Pizza Express" class="w-full p-2">
         </div>
 
         <div id="regFieldRestToggle" class="reg-field-group flex items-center space-x-2 pt-1">
-          <input type="checkbox" id="regRestLoginOnly" class="rounded border-darkborder bg-slate-900 text-emerald-500">
-          <label for="regRestLoginOnly" class="text-slate-300 text-xs">Только авторизация (логин + пароль, без регистрации)</label>
+          <input type="checkbox" id="regRestLoginOnly" class="rounded">
+          <label for="regRestLoginOnly" class="text-xs">Только авторизация (логин + пароль, без регистрации)</label>
         </div>
 
         <div id="regFieldLogin" class="reg-field-group">
-          <label class="block font-semibold text-slate-300 mb-1">Логин</label>
-          <input type="text" id="regLogin" placeholder="rest_pizza_1" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white">
+          <label class="block font-semibold mb-1">Логин</label>
+          <input type="text" id="regLogin" placeholder="rest_pizza_1" class="w-full p-2 font-mono">
         </div>
 
         <div id="regFieldPassword" class="reg-field-group">
-          <label class="block font-semibold text-slate-300 mb-1">Пароль</label>
-          <input type="password" id="regPassword" placeholder="SecretPass123!" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white">
+          <label class="block font-semibold mb-1">Пароль</label>
+          <input type="password" id="regPassword" placeholder="SecretPass123!" class="w-full p-2 font-mono">
         </div>
 
         <div id="regFieldPhone" class="reg-field-group">
-          <label class="block font-semibold text-slate-300 mb-1">Телефон</label>
-          <input type="text" id="regPhone" placeholder="+79991234567" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white">
+          <label class="block font-semibold mb-1">Телефон</label>
+          <input type="text" id="regPhone" placeholder="+79991234567" class="w-full p-2 font-mono">
         </div>
 
         <div id="regFieldNames" class="reg-field-group hidden">
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block font-semibold text-slate-300 mb-1">Имя (FirstName)</label>
-              <input type="text" id="regFirstName" placeholder="Иван" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+              <label class="block font-semibold mb-1">Имя (FirstName)</label>
+              <input type="text" id="regFirstName" placeholder="Иван" class="w-full p-2">
             </div>
             <div>
-              <label class="block font-semibold text-slate-300 mb-1">Фамилия (LastName)</label>
-              <input type="text" id="regLastName" placeholder="Курьер" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+              <label class="block font-semibold mb-1">Фамилия (LastName)</label>
+              <input type="text" id="regLastName" placeholder="Курьер" class="w-full p-2">
             </div>
           </div>
         </div>
 
         <div id="regFieldDeliveryType" class="reg-field-group hidden">
-          <label class="block font-semibold text-slate-300 mb-1">Тип доставки (DeliveryType)</label>
-          <select id="regDeliveryType" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+          <label class="block font-semibold mb-1">Тип доставки (DeliveryType)</label>
+          <select id="regDeliveryType" class="w-full p-2">
             <option value="car">Автомобиль (car)</option>
             <option value="bike">Велосипед (bike)</option>
             <option value="foot">Пеший (foot)</option>
@@ -1249,24 +1324,24 @@
         </div>
 
         <div id="regFieldAddress" class="reg-field-group hidden">
-          <label class="block font-semibold text-slate-300 mb-1">Адрес доставки по умолчанию</label>
-          <input type="text" id="regAddress" placeholder="Москва, Тверская 15" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white">
+          <label class="block font-semibold mb-1">Адрес доставки по умолчанию</label>
+          <input type="text" id="regAddress" placeholder="Москва, Тверская 15" class="w-full p-2">
         </div>
 
         <div id="regFieldCode" class="reg-field-group hidden">
-          <label class="block font-semibold text-slate-300 mb-1">Telegram / СМС Код подтверждения (Verification Code)</label>
-          <input type="text" id="regCode" placeholder="1234 (или код из Telegram)" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 font-mono text-white">
+          <label class="block font-semibold mb-1">Telegram / СМС Код подтверждения (Verification Code)</label>
+          <input type="text" id="regCode" placeholder="1234 (или код из Telegram)" class="w-full p-2 font-mono">
         </div>
 
         <div id="regFieldCity" class="reg-field-group">
-          <label class="block font-semibold text-slate-300 mb-1">Город / CityKey</label>
-          <input type="text" id="regCity" placeholder="Москва / msk" class="w-full bg-slate-900 border border-darkborder rounded-lg p-2 text-white" value="Москва">
+          <label class="block font-semibold mb-1">Город / CityKey</label>
+          <input type="text" id="regCity" placeholder="Москва / msk" class="w-full p-2" value="Москва">
         </div>
       </div>
 
       <div class="flex justify-end space-x-2 pt-2 border-t border-darkborder">
-        <button onclick="closeRegisterModal()" class="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">Отмена</button>
-        <button onclick="submitRegister(this)" class="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold rounded-lg">Зарегистрировать и получить JWT</button>
+        <button onclick="closeRegisterModal()" class="px-4 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg">Отмена</button>
+        <button onclick="submitRegister(this)" class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-semibold rounded-lg shadow-sm">Зарегистрировать и получить JWT</button>
       </div>
     </div>
   </div>
@@ -1275,29 +1350,29 @@
   <div id="runDetailsModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="if(event.target===this) closeRunDetails()">
     <div class="bg-darkcard border border-darkborder rounded-2xl max-w-3xl w-full shadow-2xl max-h-[90vh] flex flex-col">
       <div class="flex items-center justify-between border-b border-darkborder p-5 shrink-0">
-        <h3 id="runDetailsTitle" class="font-bold text-white text-base flex items-center space-x-2 min-w-0">
-          <i class="fa-solid fa-magnifying-glass-chart text-blue-400"></i>
+        <h3 id="runDetailsTitle" class="font-semibold text-white text-base flex items-center space-x-2 min-w-0">
+          <i class="fa-solid fa-chart-line text-zinc-400"></i>
           <span>Отчёт по прогону</span>
         </h3>
-        <button onclick="closeRunDetails()" title="Закрыть" class="text-slate-400 hover:text-white shrink-0"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeRunDetails()" title="Закрыть" class="text-zinc-400 hover:text-white shrink-0"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div id="runDetailsBody" class="p-5 space-y-4 overflow-y-auto text-xs flex-1">
-        <div class="text-slate-500 italic text-center py-8">Загрузка...</div>
+        <div class="text-zinc-500 italic text-center py-8">Загрузка...</div>
       </div>
-      <div class="border-t border-darkborder px-5 py-3 shrink-0 flex items-center justify-between gap-3 bg-slate-900/60 rounded-b-2xl">
-        <span id="runDetailsFooterMeta" class="text-[10px] font-mono text-slate-500 truncate">—</span>
+      <div class="border-t border-darkborder px-5 py-3 shrink-0 flex items-center justify-between gap-3 bg-zinc-900/60 rounded-b-2xl">
+        <span id="runDetailsFooterMeta" class="text-[10px] font-mono text-zinc-500 truncate">—</span>
         <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <button id="runExportJunitBtn" onclick="downloadReport(currentRunDetailsId,'junit')" title="Скачать отчёт прогона в формате JUnit XML"
-            class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-darkborder rounded-lg transition shrink-0">
-            ⬇ JUnit XML
+            class="px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition shrink-0 flex items-center gap-1.5">
+            <i class="fa-solid fa-download text-zinc-400"></i><span>JUnit XML</span>
           </button>
           <button id="runExportAllureBtn" onclick="downloadReport(currentRunDetailsId,'allure')" title="Скачать отчёт прогона как Allure-результаты (ZIP)"
-            class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-fuchsia-300 border border-darkborder rounded-lg transition shrink-0">
-            ⬇ Allure ZIP
+            class="px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition shrink-0 flex items-center gap-1.5">
+            <i class="fa-solid fa-download text-zinc-400"></i><span>Allure ZIP</span>
           </button>
           <button onclick="openLogsForDetailsRun()" title="Открыть глобальные логи с фильтром по этому прогону"
-            class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-darkborder rounded-lg transition shrink-0">
-            <i class="fa-solid fa-scroll mr-1"></i>Все логи прогона
+            class="px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition shrink-0 flex items-center gap-1.5">
+            <i class="fa-solid fa-scroll text-zinc-400"></i><span>Логи прогона</span>
           </button>
         </div>
       </div>
@@ -1311,7 +1386,7 @@
     <div class="bg-darkcard border border-darkborder rounded-2xl max-w-lg w-full shadow-2xl max-h-[90vh] flex flex-col">
       <div class="flex items-center justify-between border-b border-darkborder p-5 shrink-0">
         <h3 class="font-bold text-white text-base flex items-center space-x-2">
-          <i class="fa-solid fa-rocket text-fuchsia-400"></i>
+          <i class="fa-solid fa-play text-zinc-400"></i>
           <span>Регресс после релиза</span>
         </h3>
         <button onclick="closeRegressionModal()" title="Закрыть" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
@@ -1346,17 +1421,17 @@
         </div>
 
         <!-- Отчёт -->
-        <div class="px-3 py-2 rounded-lg bg-slate-900/60 border border-darkborder text-slate-300 flex items-center gap-2 leading-relaxed">
-          <i class="fa-brands fa-telegram text-sky-400 shrink-0"></i>
+        <div class="px-3 py-2 rounded-lg bg-zinc-900/60 border border-darkborder text-zinc-300 flex items-center gap-2 leading-relaxed">
+          <i class="fa-brands fa-telegram text-zinc-400 shrink-0"></i>
           <span><b>Отчёт:</b> по завершении придёт сводка в Telegram (если настроен бот)</span>
         </div>
       </div>
 
       <div class="border-t border-darkborder p-4 flex justify-end space-x-2 shrink-0 bg-slate-900/60 rounded-b-2xl">
-        <button onclick="closeRegressionModal()" class="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition">Отмена</button>
+        <button onclick="closeRegressionModal()" class="px-4 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition">Отмена</button>
         <button id="regStartBtn" onclick="startRegression(this)" disabled
-          class="px-4 py-2 text-xs bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-fuchsia-600 disabled:hover:to-purple-600 text-white font-semibold rounded-lg transition flex items-center gap-2 shadow-lg shadow-fuchsia-600/20">
-          <i class="fa-solid fa-rocket"></i><span>Запустить регресс</span>
+          class="px-4 py-2 text-xs bg-white hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-950 font-semibold rounded-lg transition flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-play"></i><span>Запустить регресс</span>
         </button>
       </div>
     </div>
@@ -1379,39 +1454,210 @@
     </div>
   </div>
 
-  <!-- Global Logs Overlay («Все логи») -->
-  <div id="logsOverlay" class="logs-overlay hidden">
-    <div class="flex items-center gap-3 px-4 py-3 border-b border-darkborder bg-slate-900 flex-wrap shrink-0">
-      <div class="flex items-center gap-2 shrink-0">
-        <span class="w-2.5 h-2.5 rounded-full bg-red-500/70 animate-pulse" title="Живой поток событий (SSE)"></span>
-        <h2 class="text-sm font-bold text-white whitespace-nowrap"><i class="fa-solid fa-scroll text-cyan-400 mr-1.5"></i>Все логи</h2>
-        <span id="logCount" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-darkborder whitespace-nowrap">0 записей</span>
+  <!-- Replenish Scenarios Modal -->
+  <div id="replenishModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="if(event.target===this) closeReplenishModal()">
+    <div class="bg-darkcard border border-darkborder rounded-xl max-w-xl w-full p-6 space-y-4 shadow-2xl pop-in">
+      <div class="flex items-center justify-between border-b border-darkborder pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Автопополнение тестовых сценариев</h3>
+            <p class="text-[11px] text-slate-400">Умная генерация сценариев из OpenAPI спецификации</p>
+          </div>
+        </div>
+        <button onclick="closeReplenishModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <select id="logSuiteFilter" onchange="applyLogFilters()" title="Фильтр по сюту" class="bg-slate-800 border border-darkborder rounded-lg px-2 py-1.5 text-xs text-white max-w-[190px]">
+      <div class="space-y-3 text-xs">
+        <label class="block font-bold text-slate-300">Стратегии генерации сценариев:</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-slate-900/80 border border-darkborder hover:border-slate-600 transition cursor-pointer">
+            <input type="checkbox" id="stratSmoke" checked class="mt-0.5 rounded text-emerald-500 focus:ring-0 focus:outline-none bg-slate-800 border-darkborder">
+            <div>
+              <span class="font-bold text-slate-200 block">Smoke-тесты</span>
+              <span class="text-[11px] text-slate-400">Быстрые смоук-проверки всех ручек с ролями и данными (!5xx)</span>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-slate-900/80 border border-darkborder hover:border-slate-600 transition cursor-pointer">
+            <input type="checkbox" id="stratCRUD" checked class="mt-0.5 rounded text-emerald-500 focus:ring-0 focus:outline-none bg-slate-800 border-darkborder">
+            <div>
+              <span class="font-bold text-slate-200 block">CRUD Жизненный цикл</span>
+              <span class="text-[11px] text-slate-400">Цепочки Create → Read → Update → Delete с извлечением ID</span>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-slate-900/80 border border-darkborder hover:border-slate-600 transition cursor-pointer">
+            <input type="checkbox" id="stratRBAC" checked class="mt-0.5 rounded text-emerald-500 focus:ring-0 focus:outline-none bg-slate-800 border-darkborder">
+            <div>
+              <span class="font-bold text-slate-200 block">RBAC &amp; Безопасность</span>
+              <span class="text-[11px] text-slate-400">Матрица доступа: гейты 401 (без токена) и 403 (между ролями)</span>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2.5 p-3 rounded-lg bg-slate-900/80 border border-darkborder hover:border-slate-600 transition cursor-pointer">
+            <input type="checkbox" id="stratNegative" checked class="mt-0.5 rounded text-emerald-500 focus:ring-0 focus:outline-none bg-slate-800 border-darkborder">
+            <div>
+              <span class="font-bold text-slate-200 block">Негативная валидация</span>
+              <span class="text-[11px] text-slate-400">Пустые тела {}, битые схемы и граничные значения (4xx)</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="pt-2 border-t border-darkborder space-y-2">
+          <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
+            <input type="checkbox" id="repOptUncoveredOnly" class="rounded text-emerald-500 focus:ring-0 bg-slate-800 border-darkborder">
+            <span>Генерировать тесты <strong>только для непокрытых</strong> эндпоинтов</span>
+          </label>
+          <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
+            <input type="checkbox" id="repOptOverwrite" class="rounded text-emerald-500 focus:ring-0 bg-slate-800 border-darkborder">
+            <span>Перезаписать ранее сгенерированные авто-сценарии (spec_*)</span>
+          </label>
+        </div>
+
+        <!-- Preview Box -->
+        <div id="replenishPreviewBox" class="hidden p-3 bg-slate-950/60 border border-darkborder rounded-lg space-y-2">
+          <div id="replenishPreviewContent"></div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-darkborder gap-2">
+        <button onclick="runReplenishPreview(this)" class="px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition">
+          <i class="fa-solid fa-eye mr-1.5"></i>Предпросмотр
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeReplenishModal()" class="px-3 py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition">
+            Отмена
+          </button>
+          <button onclick="executeReplenish(this)" class="px-4 py-2 text-xs font-semibold bg-white hover:bg-zinc-200 text-zinc-950 rounded-lg shadow-sm transition">
+            <i class="fa-solid fa-play mr-1.5"></i>Сгенерировать и сохранить
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile App Modal (Add/Edit mobile application target) -->
+  <div id="mobileAppModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="if(event.target===this) closeMobileAppModal()">
+    <div class="bg-darkcard border border-darkborder rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl pop-in">
+      <div class="flex items-center justify-between border-b border-darkborder pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300">
+            <i class="fa-solid fa-mobile-screen text-sm"></i>
+          </div>
+          <div>
+            <h3 id="mobileAppModalTitle" class="text-sm font-semibold text-white">Добавить мобильное приложение</h3>
+            <p class="text-[11px] text-zinc-400">Настройка репозитория для проверки контрактов DTO</p>
+          </div>
+        </div>
+        <button onclick="closeMobileAppModal()" class="text-zinc-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <input type="hidden" id="mobileAppEditId" value="">
+
+      <div class="space-y-3 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold mb-1">Название приложения <span class="text-red-400">*</span></label>
+            <input type="text" id="mobileAppName" placeholder="например, Locali Client iOS"
+              class="w-full px-2.5 py-2">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">Платформа / Язык</label>
+            <select id="mobileAppPlatform" class="w-full px-2.5 py-2">
+              <option value="flutter">Flutter (Dart)</option>
+              <option value="ios">Native iOS (Swift Codable)</option>
+              <option value="android">Native Android (Kotlin data class)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold mb-1">Источник</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-2 rounded-lg bg-zinc-900 border border-darkborder hover:border-zinc-700 cursor-pointer">
+              <input type="radio" name="mobileAppSourceType" value="gitlab" checked onchange="toggleModalSourceType(this.value)" class="text-zinc-200 focus:ring-0">
+              <span class="text-zinc-200 font-medium"><i class="fa-brands fa-gitlab text-zinc-400 mr-1"></i>GitLab Репо</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-lg bg-zinc-900 border border-darkborder hover:border-zinc-700 cursor-pointer">
+              <input type="radio" name="mobileAppSourceType" value="local" onchange="toggleModalSourceType(this.value)" class="text-zinc-200 font-medium"><i class="fa-solid fa-folder-open text-zinc-400 mr-1"></i>Локальная папка</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="modalGitlabFields" class="space-y-3">
+          <div>
+            <label class="block font-semibold mb-1">GitLab URL репозитория <span class="text-red-400">*</span></label>
+            <input type="text" id="mobileAppRepoUrl" placeholder="https://lokaligitlabru.ru/app/locali-client-ios.git"
+              class="w-full px-2.5 py-2 font-mono">
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold mb-1">Ветка (Branch)</label>
+              <input type="text" id="mobileAppBranch" value="main" placeholder="main"
+                class="w-full px-2.5 py-2 font-mono">
+            </div>
+            <div>
+              <label class="block font-semibold mb-1">Access Token (Private/Project)</label>
+              <input type="password" id="mobileAppToken" placeholder="glpat-... (опционально)"
+                class="w-full px-2.5 py-2 font-mono">
+            </div>
+          </div>
+        </div>
+
+        <div id="modalLocalFields" class="hidden">
+          <label class="block font-semibold mb-1">Путь к папке проекта <span class="text-red-400">*</span></label>
+          <input type="text" id="mobileAppLocalPath" placeholder="/app/my_ios_project"
+            class="w-full px-2.5 py-2 font-mono">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-darkborder">
+        <button onclick="closeMobileAppModal()" class="px-3 py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition">
+          Отмена
+        </button>
+        <button id="mobileAppSaveBtn" onclick="saveMobileApp(this)" class="px-4 py-2 text-xs font-semibold bg-white hover:bg-zinc-200 text-zinc-950 rounded-lg shadow-sm transition">
+          Сохранить приложение
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Logs Overlay («Все логи») -->
+  <div id="logsOverlay" class="logs-overlay hidden">
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-darkborder bg-zinc-900 flex-wrap shrink-0">
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="w-2.5 h-2.5 rounded-full bg-red-500/70 animate-pulse" title="Живой поток событий (SSE)"></span>
+        <h2 class="text-sm font-bold text-white whitespace-nowrap"><i class="fa-solid fa-scroll text-zinc-400 mr-1.5"></i>Все логи</h2>
+        <span id="logCount" class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-darkborder whitespace-nowrap">0 записей</span>
+      </div>
+
+      <select id="logSuiteFilter" onchange="applyLogFilters()" title="Фильтр по сюту" class="bg-zinc-800 border border-darkborder rounded-lg px-2 py-1.5 text-xs text-white max-w-[190px]">
         <option value="">Все сюты</option>
       </select>
 
-      <div class="flex items-center gap-2.5 flex-wrap text-[10px] text-slate-300">
-        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать INFO"><input type="checkbox" checked onchange="toggleLogLevel(this,'INFO')" class="accent-blue-500">INFO</label>
-        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать SUCCESS"><input type="checkbox" checked onchange="toggleLogLevel(this,'SUCCESS')" class="accent-green-500">SUCCESS</label>
-        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать WARN"><input type="checkbox" checked onchange="toggleLogLevel(this,'WARN')" class="accent-amber-500">WARN</label>
-        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать ERROR"><input type="checkbox" checked onchange="toggleLogLevel(this,'ERROR')" class="accent-red-500">ERROR</label>
-        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать HTTP"><input type="checkbox" checked onchange="toggleLogLevel(this,'HTTP')" class="accent-cyan-500">HTTP</label>
+      <div class="flex items-center gap-2.5 flex-wrap text-[10px] text-zinc-300">
+        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать INFO"><input type="checkbox" checked onchange="toggleLogLevel(this,'INFO')" class="accent-zinc-400">INFO</label>
+        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать SUCCESS"><input type="checkbox" checked onchange="toggleLogLevel(this,'SUCCESS')" class="accent-zinc-400">SUCCESS</label>
+        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать WARN"><input type="checkbox" checked onchange="toggleLogLevel(this,'WARN')" class="accent-zinc-400">WARN</label>
+        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать ERROR"><input type="checkbox" checked onchange="toggleLogLevel(this,'ERROR')" class="accent-zinc-400">ERROR</label>
+        <label class="flex items-center gap-1 cursor-pointer select-none" title="Показывать HTTP"><input type="checkbox" checked onchange="toggleLogLevel(this,'HTTP')" class="accent-zinc-400">HTTP</label>
       </div>
 
-      <input type="text" id="logSearch" oninput="applyLogFilters()" placeholder="Поиск по тексту…" class="flex-1 min-w-[150px] max-w-xs bg-slate-900 border border-darkborder rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none">
+      <input type="text" id="logSearch" oninput="applyLogFilters()" placeholder="Поиск по тексту…" class="flex-1 min-w-[150px] max-w-xs bg-zinc-900 border border-darkborder rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none">
 
-      <label class="flex items-center gap-1.5 text-[10px] text-slate-300 cursor-pointer select-none shrink-0" title="Автоматически прокручивать к новым записям (отключается при прокрутке вверх)">
-        <input type="checkbox" id="logAutoScroll" checked onchange="toggleAutoScroll(this)" class="accent-emerald-500">Автопрокрутка
+      <label class="flex items-center gap-1.5 text-[10px] text-zinc-300 cursor-pointer select-none shrink-0" title="Автоматически прокручивать к новым записям (отключается при прокрутке вверх)">
+        <input type="checkbox" id="logAutoScroll" checked onchange="toggleAutoScroll(this)" class="accent-zinc-400">Автопрокрутка
       </label>
 
       <div class="flex items-center gap-1.5 ml-auto shrink-0">
-        <button id="logJumpLatest" onclick="jumpToLatestLogs()" class="hidden px-2.5 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition" title="Прокрутить к свежим записям"><i class="fa-solid fa-arrow-down mr-1"></i>К свежим</button>
-        <button id="logPauseBtn" onclick="toggleLogPause(this)" class="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition whitespace-nowrap" title="Приостановить отрисовку потока"><i class="fa-solid fa-pause mr-1"></i>Пауза потока</button>
-        <button onclick="copyLogsToClipboard()" class="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition" title="Копировать всё (с учётом фильтров)"><i class="fa-solid fa-copy"></i></button>
-        <button onclick="downloadLogsFile()" class="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition" title="Скачать как .log файл"><i class="fa-solid fa-download"></i></button>
-        <button onclick="closeLogsOverlay()" class="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-red-950 text-red-400 border border-darkborder rounded-lg transition" title="Закрыть (Esc)"><i class="fa-solid fa-xmark"></i></button>
+        <button id="logJumpLatest" onclick="jumpToLatestLogs()" class="hidden px-2.5 py-1.5 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-sm transition" title="Прокрутить к свежим записям"><i class="fa-solid fa-arrow-down mr-1"></i>К свежим</button>
+        <button id="logPauseBtn" onclick="toggleLogPause(this)" class="px-2.5 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition whitespace-nowrap" title="Приостановить отрисовку потока"><i class="fa-solid fa-pause mr-1"></i>Пауза потока</button>
+        <button onclick="copyLogsToClipboard()" class="px-2.5 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition" title="Копировать всё (с учётом фильтров)"><i class="fa-solid fa-copy"></i></button>
+        <button onclick="downloadLogsFile()" class="px-2.5 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition" title="Скачать как .log файл"><i class="fa-solid fa-download"></i></button>
+        <button onclick="closeLogsOverlay()" class="px-2.5 py-1.5 text-xs bg-zinc-800 hover:bg-red-950 text-red-400 border border-darkborder rounded-lg transition" title="Закрыть (Esc)"><i class="fa-solid fa-xmark"></i></button>
       </div>
     </div>
 
@@ -1441,12 +1687,13 @@
   </datalist>
 
   <!-- Scripts: порядок важен (глобальное пространство имён) -->
-  <script src="js/ui.js"></script>
-  <script src="js/logs.js"></script>
-  <script src="js/scenarios-editor.js"></script>
-  <script src="js/stands.js"></script>
-  <script src="js/spec.js"></script>
-  <script src="app.js"></script>
-  <script src="js/theme.js"></script>
+  <script src="js/ui.js?v=3.2"></script>
+  <script src="js/logs.js?v=3.2"></script>
+  <script src="js/scenarios-editor.js?v=3.2"></script>
+  <script src="js/stands.js?v=3.2"></script>
+  <script src="js/spec.js?v=3.2"></script>
+  <script src="js/analysis.js?v=3.2"></script>
+  <script src="app.js?v=3.2"></script>
+  <script src="js/theme.js?v=3.2"></script>
 </body>
 </html>

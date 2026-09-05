@@ -43,6 +43,16 @@ func (api *ClientAPI) Login(ctx context.Context, req ClientLoginRequest) (string
 	return token, nil
 }
 
+// LoginWithoutSession authenticates client without mutating the shared SessionManager.
+func (api *ClientAPI) LoginWithoutSession(ctx context.Context, req ClientLoginRequest) (string, error) {
+	var token string
+	_, err := api.sessionMgr.HTTPClient().Request(ctx, "POST", "/api/clients/login", "", req, &token)
+	if err != nil {
+		return "", fmt.Errorf("client login failed: %w", err)
+	}
+	return token, nil
+}
+
 // CreateRestaurantOrder places a food delivery order
 func (api *ClientAPI) CreateRestaurantOrder(ctx context.Context, req CreateRestaurantOrderRequest) (*OrderResponse, error) {
 	return api.CreateRestaurantOrderWithIdempotency(ctx, req, "")
@@ -233,6 +243,11 @@ func (api *ClientAPI) GetFinalOrder(ctx context.Context, orderID string) (*Order
 		return nil, fmt.Errorf("client get final order failed: %w", err)
 	}
 	return &order, nil
+}
+
+// HasSession reports whether the client API currently has an active authenticated session.
+func (api *ClientAPI) HasSession() bool {
+	return api.sessionMgr != nil && api.sessionMgr.GetClientSession().Token != ""
 }
 
 // ParcelAvailability reports whether the platform accepts parcel orders right

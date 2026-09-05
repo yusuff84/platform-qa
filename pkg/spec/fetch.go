@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -19,21 +20,43 @@ var fetchClient = &http.Client{
 	},
 }
 
-// Fetch downloads a specification document from url, capping the body at
-// maxBodyBytes.
-func Fetch(ctx context.Context, rawURL string) ([]byte, error) {
-	rawURL = strings.TrimSpace(rawURL)
-	if rawURL == "" {
-		return nil, fmt.Errorf("url обязателен")
-	}
-	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
-		return nil, fmt.Errorf("url должен начинаться с http:// или https://, получено %q", rawURL)
+// Fetch downloads or reads a specification document from a URL or local file path.
+func Fetch(ctx context.Context, target string) ([]byte, error) {
+	return FetchWithAuth(ctx, target, "")
+}
+
+// FetchWithAuth downloads or reads a specification with an optional Bearer token.
+func FetchWithAuth(ctx context.Context, target, token string) ([]byte, error) {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return nil, fmt.Errorf("адрес или путь к спецификации обязателен")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("некорректный url %q: %w", rawURL, err)
+	if strings.HasPrefix(target, "file://") {
+		target = strings.TrimPrefix(target, "file://")
 	}
+
+	// 1. If it does not start with http(s), treat as local filesystem path
+	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
+		data, err := os.ReadFile(target)
+		if err != nil {
+			return nil, fmt.Errorf("чтение локального файла спецификации %q: %w", target, err)
+		}
+		if len(data) > maxBodyBytes {
+			return nil, fmt.Errorf("спецификация превышает лимит %d байт", maxBodyBytes)
+		}
+		return data, nil
+	}
+
+	// 2. HTTP/HTTPS download
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return nil, fmt.Errorf("некорректный url %q: %w", target, err)
+	}
+	if strings.TrimSpace(token) != "" {
+		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(token))
+	}
+
 	resp, err := fetchClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("не удалось скачать спецификацию: %w", err)

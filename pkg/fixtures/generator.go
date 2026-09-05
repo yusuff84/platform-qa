@@ -384,6 +384,45 @@ func (fm *FixtureManager) CreateUniqueClient(ctx context.Context) (phone, token 
 	return phone, token, nil
 }
 
+// CreateUniqueClientIsolated creates and authenticates a unique client without mutating the shared SessionMgr.
+func (fm *FixtureManager) CreateUniqueClientIsolated(ctx context.Context) (phone, token string, err error) {
+	fm.mu.Lock()
+	pinned := fm.pinnedPhone
+	fm.mu.Unlock()
+
+	phone = pinned
+	if phone == "" {
+		phone = newPhone(operatorClient)
+	}
+
+	regResp, err := fm.registerClient(ctx, phone)
+	if err != nil {
+		return "", "", err
+	}
+
+	code, source, err := fm.resolveOTP(ctx, phone, regResp)
+	if err != nil {
+		return "", "", err
+	}
+
+	loginReq := client.ClientLoginRequest{
+		PhoneNumber:      phone,
+		VerificationCode: code,
+		FirstName:        "TestClient",
+		LastName:         "Auto",
+	}
+	token, err = fm.clientAPI.LoginWithoutSession(ctx, loginReq)
+	if err != nil {
+		return "", "", fmt.Errorf("вход клиента %s не выполнен (код из источника «%s»): %w%s", phone, source, err, otpHint(err))
+	}
+
+	if verr := client.VerifyRole(token, "client"); verr != nil {
+		return "", "", fmt.Errorf("клиент %s: %w", phone, verr)
+	}
+
+	return phone, token, nil
+}
+
 // registerClient requests an OTP, waiting out the 60-second resend cooldown
 // when the phone is pinned and a previous run just used it.
 func (fm *FixtureManager) registerClient(ctx context.Context, phone string) (*client.ClientRegisterResponse, error) {

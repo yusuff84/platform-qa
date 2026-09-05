@@ -1040,10 +1040,39 @@ func (o *TestOrchestrator) runFlowB(ctx context.Context, run *TestRun, suiteKey 
 		Timestamp: time.Now(),
 	})
 
+	// Pre-flight check: Parcel delivery runs on a platform working window (10:00–23:00).
+	// Outside it every parcel is refused with 422 OUTSIDE_WORKING_HOURS: the platform
+	// is closed, which must read as skipped rather than failed.
+	// Check the window FIRST before creating client & courier fixtures or burning OTP codes!
+	if available, window, aerr := o.engine.Fixtures.ParcelOrderingAvailable(ctx); aerr == nil && !available {
+		reason := fmt.Sprintf("платформа принимает посылки только в окне %s (OUTSIDE_WORKING_HOURS)", window)
+		for _, id := range []string{"setup", "create_parcel", "assign_courier", "pickup", "delivered"} {
+			o.checkSkip(run, suiteKey, id, reason)
+		}
+		o.Emit(&ExecutionEvent{
+			RunID:     run.ID,
+			SuiteName: suiteName,
+			SuiteKey:  suiteKey,
+			StepType:  "INFO",
+			Level:     LogWarn,
+			Message:   "⏸ Пропуск сьюта: " + reason + " (создание фикстур пропущено)",
+			Timestamp: time.Now(),
+		})
+		return nil
+	}
+
 	setupStart := time.Now()
 	o.checkStart(run, suiteKey, "setup")
-	clientPhone, _, _ := o.engine.Fixtures.CreateUniqueClient(ctx)
-	courierID, _, _ := o.engine.Fixtures.CreateUniqueCourier(ctx)
+	clientPhone, _, err := o.engine.Fixtures.CreateUniqueClient(ctx)
+	if err != nil {
+		o.checkDone(run, suiteKey, "setup", false, err.Error(), setupStart)
+		return err
+	}
+	courierID, _, err := o.engine.Fixtures.CreateUniqueCourier(ctx)
+	if err != nil {
+		o.checkDone(run, suiteKey, "setup", false, err.Error(), setupStart)
+		return err
+	}
 
 	if o.engine.Config.AdminToken == "" {
 		_, _ = o.engine.SessionMgr.LoginAdmin(ctx, o.engine.Config.AdminLogin, o.engine.Config.AdminPassword)
@@ -1053,26 +1082,6 @@ func (o *TestOrchestrator) runFlowB(ctx context.Context, run *TestRun, suiteKey 
 
 	createStart := time.Now()
 	o.checkStart(run, suiteKey, "create_parcel")
-
-	// Parcel delivery runs on a platform working window (10:00–23:00). Outside
-	// it every parcel is refused with 422 OUTSIDE_WORKING_HOURS: the platform
-	// is closed, which must read as skipped rather than failed.
-	if available, window, aerr := o.engine.Fixtures.ParcelOrderingAvailable(ctx); aerr == nil && !available {
-		reason := fmt.Sprintf("платформа принимает посылки только в окне %s", window)
-		for _, id := range []string{"create_parcel", "assign_courier", "pickup", "delivered"} {
-			o.checkSkip(run, suiteKey, id, reason)
-		}
-		o.Emit(&ExecutionEvent{
-			RunID:     run.ID,
-			SuiteName: suiteName,
-			SuiteKey:  suiteKey,
-			StepType:  "INFO",
-			Level:     LogWarn,
-			Message:   "⏸ " + reason,
-			Timestamp: time.Now(),
-		})
-		return nil
-	}
 
 	// A parcel is addressed by coordinates, not by text, and carries the
 	// recipient plus the cargo type.
@@ -1574,6 +1583,24 @@ func (o *TestOrchestrator) runIdempotency(ctx context.Context, run *TestRun, sui
 	concStart := time.Now()
 	o.checkStart(run, suiteKey, "concurrent_isolation")
 
+	// Pre-flight check: parcel delivery operates strictly within 10:00–23:00.
+	// Outside the working window, every parcel creation returns 422 OUTSIDE_WORKING_HOURS.
+	// Skip concurrent parcel ordering gracefully rather than failing the reliability suite!
+	if available, window, aerr := o.engine.Fixtures.ParcelOrderingAvailable(ctx); aerr == nil && !available {
+		reason := fmt.Sprintf("платформа принимает посылки только в окне %s (OUTSIDE_WORKING_HOURS)", window)
+		o.checkSkip(run, suiteKey, "concurrent_isolation", reason)
+		o.Emit(&ExecutionEvent{
+			RunID:     run.ID,
+			SuiteName: suiteName,
+			SuiteKey:  suiteKey,
+			StepType:  "INFO",
+			Level:     LogWarn,
+			Message:   "⏸ Проверка параллельных посылок пропущена: " + reason,
+			Timestamp: time.Now(),
+		})
+		return nil
+	}
+
 	const parallelCount = 10
 	var wg sync.WaitGroup
 	errs := make(chan error, parallelCount)
@@ -1584,8 +1611,8 @@ func (o *TestOrchestrator) runIdempotency(ctx context.Context, run *TestRun, sui
 		go func(idx int) {
 			defer wg.Done()
 
-			// Each parallel worker creates its own unique client session
-			clientPhone, cToken, werr := o.engine.Fixtures.CreateUniqueClient(ctx)
+			// Each parallel worker creates its own unique client session without corrupting global SessionMgr
+			clientPhone, cToken, werr := o.engine.Fixtures.CreateUniqueClientIsolated(ctx)
 			if werr != nil {
 				errs <- fmt.Errorf("worker %d: клиент не создан: %w", idx, werr)
 				return
@@ -1617,6 +1644,20 @@ func (o *TestOrchestrator) runIdempotency(ctx context.Context, run *TestRun, sui
 		}
 	}
 	if firstWorkerErr != nil {
+		if strings.Contains(firstWorkerErr.Error(), "OUTSIDE_WORKING_HOURS") {
+			reason := "платформа принимает посылки только в окне 10:00–23:00 (OUTSIDE_WORKING_HOURS)"
+			o.checkSkip(run, suiteKey, "concurrent_isolation", reason)
+			o.Emit(&ExecutionEvent{
+				RunID:     run.ID,
+				SuiteName: suiteName,
+				SuiteKey:  suiteKey,
+				StepType:  "INFO",
+				Level:     LogWarn,
+				Message:   "⏸ Проверка параллельных посылок пропущена: " + reason,
+				Timestamp: time.Now(),
+			})
+			return nil
+		}
 		msg := fmt.Sprintf("параллельное создание заказов упало (%d/%d воркеров), первая ошибка: %v", failedWorkers, parallelCount, firstWorkerErr)
 		o.checkDone(run, suiteKey, "concurrent_isolation", false, msg, concStart)
 		return fmt.Errorf("%s", msg)

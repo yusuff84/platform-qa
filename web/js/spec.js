@@ -68,10 +68,12 @@ function renderSpecStatus(meta) {
     '<span class="font-semibold text-slate-200">' + escapeHtml(title) +
     ' · версия ' + escapeHtml(String(version)) +
     ' · ' + endpoints + ' ' + pluralRu(endpoints, ['эндпоинт', 'эндпоинта', 'эндпоинтов']) + '</span>' +
+    '<button onclick="openReplenishModal(false)" title="Умное автопополнение сценариев (Smoke, CRUD, RBAC, Negative)"' +
+    ' class="px-2.5 py-1 text-[11px] bg-white hover:bg-zinc-200 text-zinc-950 rounded-lg transition shrink-0 font-semibold shadow-sm"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Автопополнение тестов</button>' +
     '<button onclick="regenerateSpec(this)" title="Пересоздать spec_smoke* сценарии из сохранённой спеки"' +
-    ' class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-darkborder rounded-lg transition shrink-0">↻ Перегенерировать сценарии</button>' +
+    ' class="px-2.5 py-1 text-[11px] bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-darkborder rounded-lg transition shrink-0"><i class="fa-solid fa-rotate mr-1"></i>Перегенерировать</button>' +
     '<button onclick="deleteSpec(this)" title="Удалить спецификацию"' +
-    ' class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-red-950 text-red-400 border border-darkborder rounded-lg transition shrink-0">🗑 Удалить</button>';
+    ' class="px-2.5 py-1 text-[11px] bg-zinc-900 hover:bg-red-950 text-red-400 border border-darkborder rounded-lg transition shrink-0"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>';
 }
 
 // ---------- Импорт по URL ----------
@@ -102,7 +104,7 @@ async function importSpec(btn) {
       const nEndpoints = (specMeta && Array.isArray(specMeta.endpoints)) ? specMeta.endpoints.length : 0;
       const nGenerated = Array.isArray(data.generated) ? data.generated.length : 0;
       showSpecResult(
-        '✅ Импортировано: ' + nEndpoints + ' ' + pluralRu(nEndpoints, ['эндпоинт', 'эндпоинта', 'эндпоинтов']) +
+        'Импортировано: ' + nEndpoints + ' ' + pluralRu(nEndpoints, ['эндпоинт', 'эндпоинта', 'эндпоинтов']) +
         ', создано ' + nGenerated + ' ' + pluralRu(nGenerated, ['смоук-сценарий', 'смоук-сценария', 'смоук-сценариев'])
       );
 

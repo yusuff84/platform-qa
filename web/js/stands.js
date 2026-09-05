@@ -199,24 +199,30 @@ function renderStandsCards() {
     const deleteTitle = s.isMock ? 'Мок-стенд удалить нельзя' : (active ? 'Активный стенд удалить нельзя' : 'Удалить стенд');
 
     return `
-      <div class="rounded-xl border ${active ? 'border-green-500/60 bg-green-500/5' : 'border-darkborder bg-slate-900/60'} p-3 space-y-2.5 flex flex-col">
+      <div class="rounded-xl border ${active ? 'border-zinc-500 bg-zinc-900' : 'border-darkborder bg-zinc-900/60'} p-3 space-y-2.5 flex flex-col">
         <div class="flex items-center gap-2 min-w-0">
-          <span class="w-2 h-2 rounded-full shrink-0 ${active ? (s.isMock ? 'bg-amber-400' : 'bg-green-400') + ' animate-pulse' : 'bg-slate-600'}"></span>
-          <span class="text-sm font-bold truncate ${active ? 'text-green-400' : 'text-white'}" title="${escAttr(s.name)}">${escapeHtml(s.name)}</span>
+          <span class="w-2 h-2 rounded-full shrink-0 ${active ? 'bg-emerald-400' : 'bg-zinc-600'}"></span>
+          <span class="text-sm font-semibold truncate ${active ? 'text-white' : 'text-zinc-300'}" title="${escAttr(s.name)}">${escapeHtml(s.name)}</span>
           ${badges}
         </div>
-        <div class="font-mono text-[11px] break-all ${active ? 'text-emerald-400' : 'text-slate-400'}" title="Base URL стенда">${escapeHtml(s.baseURL || '—')}</div>
+        <div class="font-mono text-[11px] break-all ${active ? 'text-zinc-200' : 'text-zinc-400'}" title="Base URL стенда">${escapeHtml(s.baseURL || '—')}</div>
+        ${s.swaggerURL ? `<div class="text-[10px] font-mono text-zinc-400 truncate flex items-center gap-1" title="${escAttr(s.swaggerURL)}"><i class="fa-solid fa-book-open text-zinc-500 shrink-0"></i><span class="truncate">${escapeHtml(s.swaggerURL)}</span></div>` : ''}
         <div class="mt-auto pt-2 border-t border-darkborder flex items-center gap-1.5 flex-wrap">
           <button onclick="activateStand('${escAttr(s.id)}', this)" ${active ? 'disabled' : ''} title="${active ? 'Стенд уже активен' : 'Переключить движок на этот стенд'}"
-            class="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition flex items-center gap-1.5 ${active ? 'bg-green-500/10 text-green-400 border border-green-500/30 cursor-default disabled:opacity-60' : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-600/20'}">
+            class="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition flex items-center gap-1.5 ${active ? 'bg-zinc-800 text-zinc-400 border border-zinc-700 cursor-default disabled:opacity-60' : 'bg-white hover:bg-zinc-200 text-zinc-950 shadow-sm'}">
             <i class="fa-solid fa-check"></i><span>Сделать активным</span>
           </button>
+          ${s.swaggerURL ? `
+          <button onclick="syncStandSwagger('${escAttr(s.id)}', this)" title="Стянуть Swagger и создать тесты ручек"
+            class="px-2.5 py-1.5 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg transition flex items-center gap-1.5">
+            <i class="fa-solid fa-wand-magic-sparkles text-zinc-400"></i><span>Стянуть тесты</span>
+          </button>` : ''}
           <button onclick="startEditStand('${escAttr(s.id)}')" title="Редактировать стенд"
-            class="px-2.5 py-1.5 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-lg transition flex items-center gap-1.5">
+            class="px-2.5 py-1.5 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-lg transition flex items-center gap-1.5">
             <i class="fa-solid fa-pen"></i><span>Ред.</span>
           </button>
           <button onclick="deleteStandClick('${escAttr(s.id)}', this)" ${undeletable ? 'disabled' : ''} title="${deleteTitle}"
-            class="ml-auto px-2.5 py-1.5 text-[11px] bg-slate-800 text-red-400 border border-darkborder rounded-lg transition flex items-center gap-1.5 ${undeletable ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-950'}">
+            class="ml-auto px-2.5 py-1.5 text-[11px] bg-zinc-800 text-red-400 border border-darkborder rounded-lg transition flex items-center gap-1.5 ${undeletable ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-950'}">
             <i class="fa-solid fa-trash"></i><span>Удалить</span>
           </button>
         </div>
@@ -234,6 +240,8 @@ function resetStandForm() {
   urlInput.value = '';
   urlInput.disabled = false;
   document.getElementById('standBaseUrlHint').classList.add('hidden');
+  const swInput = document.getElementById('standSwaggerUrl');
+  if (swInput) swInput.value = '';
   document.getElementById('standSubmitLabel').textContent = 'Добавить стенд';
   document.getElementById('standCancelEditBtn').classList.add('hidden');
 }
@@ -254,14 +262,17 @@ function startEditStand(id) {
   urlInput.disabled = !!s.isMock; // мок-стенду baseURL менять нельзя
   document.getElementById('standBaseUrlHint').classList.toggle('hidden', !s.isMock);
 
+  const swInput = document.getElementById('standSwaggerUrl');
+  if (swInput) swInput.value = s.swaggerURL || '';
+
   document.getElementById('standSubmitLabel').textContent = 'Сохранить изменения';
   document.getElementById('standCancelEditBtn').classList.remove('hidden');
 
   const form = document.getElementById('standFormBox');
   if (form) {
     form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    form.classList.add('ring-1', 'ring-fuchsia-500/50');
-    setTimeout(() => form.classList.remove('ring-1', 'ring-fuchsia-500/50'), 1600);
+    form.classList.add('ring-1', 'ring-zinc-500');
+    setTimeout(() => form.classList.remove('ring-1', 'ring-zinc-500'), 1600);
   }
 }
 
@@ -269,6 +280,7 @@ async function submitStandForm(btn) {
   const editId = document.getElementById('standEditId').value.trim();
   const name = document.getElementById('standName').value.trim();
   const baseURL = document.getElementById('standBaseUrl').value.trim();
+  const swaggerURL = (document.getElementById('standSwaggerUrl') ? document.getElementById('standSwaggerUrl').value : '').trim();
 
   if (!name) {
     toastError('Укажите название стенда.');
@@ -281,7 +293,7 @@ async function submitStandForm(btn) {
 
   // Мок-стенду baseURL менять нельзя — не отправляем его вовсе
   const editing = editId ? findStandById(editId) : null;
-  const payload = { name };
+  const payload = { name, swaggerURL };
   if (!(editing && editing.isMock)) payload.baseURL = baseURL;
 
   await busyWrap(btn, async () => {
@@ -302,6 +314,28 @@ async function submitStandForm(btn) {
       if (typeof initStatus === 'function') initStatus();
     } catch (err) {
       toastError('Ошибка сохранения стенда: ' + err.message);
+    }
+  });
+}
+
+async function syncStandSwagger(id, btn) {
+  await busyWrap(btn, async () => {
+    try {
+      const res = await fetch('/api/stands/' + encodeURIComponent(id) + '/sync-swagger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) throw new Error((await res.text()) || ('HTTP ' + res.status));
+      const data = await res.json();
+      toastSuccess(`Swagger стенда стянут! Автосгенерировано: ${data.savedCount} сценариев.`);
+      if (typeof logTerminal === 'function') {
+        logTerminal('SUCCESS', `Стянут Swagger стенда ${data.standName}: создано ${data.savedCount} тестов.`);
+      }
+      if (typeof loadSuites === 'function') await loadSuites();
+      if (typeof loadSpec === 'function') await loadSpec();
+      if (typeof loadAnalysis === 'function') await loadAnalysis();
+    } catch (err) {
+      toastError('Ошибка синхронизации Swagger: ' + err.message);
     }
   });
 }

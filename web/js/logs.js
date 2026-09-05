@@ -42,13 +42,13 @@ function humanizeEvent(ev) {
 
   switch (t) {
     case 'SUITE_START':
-      return '▶ Запуск: ' + (ev.suiteName || __logsSuiteTitle(ev.suiteKey) || ev.suiteKey || 'сценарий');
+      return 'Запуск: ' + (ev.suiteName || __logsSuiteTitle(ev.suiteKey) || ev.suiteKey || 'сценарий');
     case 'CHECK_START':
       return 'Выполняется: ' + (title || msg || 'проверка');
     case 'CHECK_SUCCESS':
-      return '\u2714 ' + (title || msg);
+      return 'Успех: ' + (title || msg);
     case 'CHECK_FAILED':
-      return '\u2718 ' + (title || 'проверка') + (msg ? ': ' + msg : '');
+      return 'Сбой: ' + (title || 'проверка') + (msg ? ': ' + msg : '');
     case 'GIVEN':
       return msg ? 'Подготовка: ' + msg : 'Подготовка';
     case 'WHEN':
@@ -59,9 +59,9 @@ function humanizeEvent(ev) {
       return msg ? 'Доп. проверка: ' + msg : 'Доп. проверка';
     case 'SUMMARY':
       if (ev.level === 'SUCCESS' || ev.level === 'PASSED') {
-        return '🎉 Готово: все проверки пройдены за ' + (dur || '—');
+        return 'Успех: все проверки пройдены за ' + (dur || '—');
       }
-      return '💥 Провал: ' + (msg || 'сценарий завершился с ошибкой');
+      return 'Сбой: ' + (msg || 'сценарий завершился с ошибкой');
     default:
       return ev.message || t || '';
   }
@@ -193,7 +193,7 @@ function logsLineHtml(e) {
     '<span class="lvl-tag lvl-' + e.level + ' leading-5 my-[1px]">' + e.level + '</span>' +
     suiteTag +
     '<span class="flex-1 break-all text-[11px] leading-5 ' +
-    (e.level === 'ERROR' ? 'text-red-300 font-medium' : (e.level === 'SUCCESS' ? 'text-green-300' : (e.level === 'WARN' ? 'text-amber-300' : (e.level === 'HTTP' ? 'text-cyan-200' : 'text-slate-300')))) +
+    (e.level === 'ERROR' ? 'text-red-300 font-medium' : (e.level === 'SUCCESS' ? 'text-emerald-300' : (e.level === 'WARN' ? 'text-amber-300' : 'text-zinc-300'))) +
     '">' + escapeHtml(e.text) + '</span>' +
     '</div>';
 }
@@ -208,9 +208,9 @@ function logsRender() {
 
   let html = '';
   if (LogsState.filterRunId) {
-    html += '<div class="px-3 py-1.5 text-[10px] bg-blue-500/10 text-blue-300 border-b border-darkborder flex items-center gap-2">' +
+    html += '<div class="px-3 py-1.5 text-[10px] bg-zinc-800 text-zinc-200 border-b border-darkborder flex items-center gap-2">' +
       '<i class="fa-solid fa-filter"></i>Фильтр по прогону: <span class="font-mono">' + escapeHtml(String(LogsState.filterRunId).slice(0, 12)) + '…</span>' +
-      '<button onclick="clearLogRunFilter()" class="ml-auto text-blue-300 hover:text-white" title="Сбросить фильтр по прогону"><i class="fa-solid fa-xmark"></i></button></div>';
+      '<button onclick="clearLogRunFilter()" class="ml-auto text-zinc-400 hover:text-white" title="Сбросить фильтр по прогону"><i class="fa-solid fa-xmark"></i></button></div>';
   }
   if (hidden > 0) {
     html += '<div class="px-3 py-1 text-[10px] text-slate-500 italic">…скрыто ' + hidden + ' старых ' + pluralRu(hidden, ['запись', 'записи', 'записей']) + ' (рендер ограничен)</div>';
@@ -429,8 +429,8 @@ function hideLogPopover() {
 function showLogPopover(runId, x, y) {
   const pop = document.getElementById('logPopover');
   if (!pop) return;
-  pop.innerHTML = '<button onclick="openLogsFiltered(\'' + escAttr(runId) + '\')" class="w-full whitespace-nowrap px-3 py-1.5 text-left text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-lg shadow-xl border border-darkborder transition">' +
-    '<i class="fa-solid fa-filter mr-1.5 text-blue-400"></i>Фильтровать по этому прогону</button>';
+  pop.innerHTML = '<button onclick="openLogsFiltered(\'' + escAttr(runId) + '\')" class="w-full whitespace-nowrap px-3 py-1.5 text-left text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-lg shadow-xl border border-darkborder transition">' +
+    '<i class="fa-solid fa-filter mr-1.5 text-zinc-400"></i>Фильтровать по этому прогону</button>';
   pop.classList.remove('hidden');
   const rect = pop.getBoundingClientRect();
   pop.style.left = Math.min(Math.max(8, x - rect.width / 2), window.innerWidth - rect.width - 8) + 'px';

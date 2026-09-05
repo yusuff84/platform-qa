@@ -25,23 +25,6 @@
 
   window.toggleTheme = toggleTheme;
 
-  if (window.matchMedia) {
-    try {
-      var mq = window.matchMedia('(prefers-color-scheme: light)');
-      var onChange = function (ev) {
-        var saved = null;
-        try { saved = localStorage.getItem(KEY); } catch (e) {}
-        if (saved !== 'dark' && saved !== 'light') {
-          root.classList.remove('light', 'dark');
-          root.classList.add(ev.matches ? 'light' : 'dark');
-          applyIcon();
-        }
-      };
-      if (mq.addEventListener) mq.addEventListener('change', onChange);
-      else if (mq.addListener) mq.addListener(onChange);
-    } catch (e) {}
-  }
-
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', applyIcon);
   } else {

@@ -17,6 +17,7 @@ type Stand struct {
 	Name       string `json:"name"`
 	BaseURL    string `json:"baseURL"`
 	VerifyCode string `json:"verifyCode,omitempty"` // код верификации этого стенда
+	SwaggerURL string `json:"swaggerURL,omitempty"` // URL или путь к OpenAPI/Swagger спецификации
 	IsMock     bool   `json:"isMock"`
 }
 
@@ -140,10 +141,15 @@ func (s *Store) Active() (Stand, bool) {
 
 // Add validates inputs, derives a slug id from the name (with a numeric
 // suffix on collision) and persists the new stand.
-func (s *Store) Add(name, baseURL, verifyCode string) (Stand, error) {
+func (s *Store) Add(name, baseURL, verifyCode string, swaggerURL ...string) (Stand, error) {
 	name, baseURL = strings.TrimSpace(name), strings.TrimSpace(baseURL)
 	if err := validate(name, baseURL); err != nil {
 		return Stand{}, err
+	}
+
+	swURL := ""
+	if len(swaggerURL) > 0 {
+		swURL = strings.TrimSpace(swaggerURL[0])
 	}
 
 	s.mu.Lock()
@@ -158,6 +164,7 @@ func (s *Store) Add(name, baseURL, verifyCode string) (Stand, error) {
 		Name:       name,
 		BaseURL:    baseURL,
 		VerifyCode: verifyCode,
+		SwaggerURL: swURL,
 	}
 	s.items = append(s.items, ns)
 	if err := s.saveLocked(); err != nil {
@@ -167,9 +174,9 @@ func (s *Store) Add(name, baseURL, verifyCode string) (Stand, error) {
 	return ns, nil
 }
 
-// Update replaces name/baseURL/verifyCode of the stand. The baseURL of the
+// Update replaces name/baseURL/verifyCode/swaggerURL of the stand. The baseURL of the
 // embedded mock stand is immutable.
-func (s *Store) Update(id, name, baseURL, verifyCode string) error {
+func (s *Store) Update(id, name, baseURL, verifyCode string, swaggerURL ...string) error {
 	name, baseURL = strings.TrimSpace(name), strings.TrimSpace(baseURL)
 	if err := validate(name, baseURL); err != nil {
 		return err
@@ -189,6 +196,9 @@ func (s *Store) Update(id, name, baseURL, verifyCode string) error {
 	s.items[idx].Name = name
 	s.items[idx].BaseURL = baseURL
 	s.items[idx].VerifyCode = verifyCode
+	if len(swaggerURL) > 0 {
+		s.items[idx].SwaggerURL = strings.TrimSpace(swaggerURL[0])
+	}
 	if err := s.saveLocked(); err != nil {
 		s.items[idx] = prev
 		return err

@@ -17,8 +17,10 @@ import (
 	"github.com/google/uuid"
 
 	"locali-e2e-engine/config"
+	"locali-e2e-engine/pkg/analysis"
 	"locali-e2e-engine/pkg/client"
 	"locali-e2e-engine/pkg/dsl"
+	"locali-e2e-engine/pkg/mobilecontract"
 	"locali-e2e-engine/pkg/registry"
 	"locali-e2e-engine/pkg/report"
 	"locali-e2e-engine/pkg/runner"
@@ -51,6 +53,11 @@ type Server struct {
 	// runs are still pending per GroupID and the finished run snapshots, so a
 	// single Telegram digest is sent when the whole group completes.
 	groups groupTracker
+
+	// Mobile Contract DTO Compatibility state
+	mobileMu     sync.RWMutex
+	mobileReport *mobilecontract.CompatibilityReport
+	mobileApps   *mobilecontract.AppStore
 }
 
 // groupTracker accumulates finished runs of grouped batches and fires exactly
@@ -186,6 +193,12 @@ func NewServer(cfg *config.Config, webDir string) (*Server, error) {
 		return nil, fmt.Errorf("failed to init spec store: %w", err)
 	}
 
+	// Mobile applications registry (<DataDir>/mobile_apps.json)
+	mobileAppStore, err := mobilecontract.NewAppStore(cfg.DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init mobile apps store: %w", err)
+	}
+
 	srv := &Server{
 		cfg:          cfg,
 		engine:       engine,
@@ -196,6 +209,7 @@ func NewServer(cfg *config.Config, webDir string) (*Server, error) {
 		specs:        specStore,
 		webDir:       webDir,
 		vaultDir:     stands.VaultsDir(cfg.DataDir),
+		mobileApps:   mobileAppStore,
 	}
 
 	if act, ok := standsStore.Active(); ok {
@@ -278,6 +292,7 @@ func (s *Server) Start(port int) error {
 
 	// User-defined custom scenarios
 	mux.HandleFunc("/api/scenarios", s.handleScenarios)
+	mux.HandleFunc("/api/scenarios/replenish", s.handleScenariosReplenish)
 	mux.HandleFunc("/api/scenarios/", s.handleScenarioByID)
 
 	// OpenAPI/Swagger import & generated smoke scenarios
@@ -285,9 +300,25 @@ func (s *Server) Start(port int) error {
 	mux.HandleFunc("/api/spec/current", s.handleSpecCurrent)
 	mux.HandleFunc("/api/spec/regenerate", s.handleSpecRegenerate)
 
+	// Platform Analysis & Metrics
+	mux.HandleFunc("/api/analysis/coverage", s.handleAnalysisCoverage)
+	mux.HandleFunc("/api/analysis/metrics", s.handleAnalysisMetrics)
+	mux.HandleFunc("/api/analysis/diagnostics/", s.handleAnalysisDiagnostics)
+	mux.HandleFunc("/api/analysis/diagnostics", s.handleAnalysisDiagnostics)
+
 	// Stand targets (multi-backend switching)
 	mux.HandleFunc("/api/stands", s.handleStands)
 	mux.HandleFunc("/api/stands/", s.handleStandByID)
+
+	// Mobile Contract DTO Compatibility (Flutter, iOS Swift, Android Kotlin)
+	mux.HandleFunc("/api/mobilecontract/scan", s.handleMobileContractScan)
+	mux.HandleFunc("/api/mobilecontract/report", s.handleMobileContractReport)
+	mux.HandleFunc("/api/mobilecontract/gitlab/branches", s.handleMobileGitLabBranches)
+	mux.HandleFunc("/api/mobilecontract/gitlab/scan", s.handleMobileGitLabScan)
+	mux.HandleFunc("/api/mobilecontract/gitlab/config", s.handleMobileGitLabConfig)
+	mux.HandleFunc("/api/mobilecontract/apps/scan-all", s.handleMobileAppsScanAll)
+	mux.HandleFunc("/api/mobilecontract/apps", s.handleMobileApps)
+	mux.HandleFunc("/api/mobilecontract/apps/", s.handleMobileAppByID)
 
 	// Static Web Admin UI
 	fileServer := http.FileServer(http.Dir(s.webDir))
@@ -958,10 +989,84 @@ func (s *Server) handleScenarioByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleSpecImport serves POST /api/spec/import {"url"}: downloads an
-// OpenAPI/Swagger document, parses it, persists the pair and regenerates the
-// spec_smoke_* scenarios. Parse/download failures are reported as plain-text
-// 400 responses.
+// handleScenariosReplenish serves POST /api/scenarios/replenish.
+// Generates intelligent scenarios (smoke, crud, rbac, negative) from OpenAPI spec.
+func (s *Server) handleScenariosReplenish(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	meta, ok := s.specs.Meta()
+	if !ok || meta == nil || len(meta.Endpoints) == 0 {
+		http.Error(w, `{"error":"спецификация API не импортирована. Сначала импортируйте OpenAPI-спеку во вкладке Инструменты."}`, http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Strategies    []string `json:"strategies"`
+		Tags          []string `json:"tags"`
+		UncoveredOnly bool     `json:"uncoveredOnly"`
+		Preview       bool     `json:"preview"`
+		Overwrite     bool     `json:"overwrite"`
+		MaxScenarios  int      `json:"maxScenarios"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+		http.Error(w, fmt.Sprintf(`{"error":"некорректный json: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	opts := spec.ReplenishOptions{
+		Strategies:    req.Strategies,
+		Tags:          req.Tags,
+		UncoveredOnly: req.UncoveredOnly,
+		MaxScenarios:  req.MaxScenarios,
+	}
+
+	if opts.UncoveredOnly {
+		cov := analysis.AnalyzeCoverage(meta, s.store.List())
+		coveredKeys := make(map[string]bool)
+		for _, covEp := range cov.Covered {
+			coveredKeys[covEp.Method+" "+covEp.Path] = true
+		}
+		opts.CoveredKeys = coveredKeys
+	}
+
+	result := spec.ReplenishScenarios(meta, opts)
+
+	if req.Preview {
+		_ = json.NewEncoder(w).Encode(result)
+		return
+	}
+
+	if req.Overwrite {
+		s.deleteGeneratedScenarios()
+	}
+
+	savedCount := 0
+	savedKeys := make([]string, 0, len(result.Scenarios))
+	for _, sc := range result.Scenarios {
+		if err := s.store.Save(sc); err == nil {
+			savedCount++
+			savedKeys = append(savedKeys, sc.Key)
+		}
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":           "ok",
+		"savedCount":       savedCount,
+		"savedKeys":        savedKeys,
+		"byStrategy":       result.ByStrategy,
+		"coveredEndpoints": result.CoveredEndpoints,
+		"scenarios":        result.Scenarios,
+	})
+}
+
+// handleSpecImport serves POST /api/spec/import {"url", "autoReplenish", "strategies"}:
+// downloads/reads an OpenAPI/Swagger document, parses it, persists the pair and
+// generates scenarios. Parse/download failures are reported as plain-text 400 responses.
 func (s *Server) handleSpecImport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -971,14 +1076,17 @@ func (s *Server) handleSpecImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		URL string `json:"url"`
+		URL           string   `json:"url"`
+		AutoReplenish bool     `json:"autoReplenish"`
+		Strategies    []string `json:"strategies"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf("invalid json body: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	raw, err := spec.Fetch(r.Context(), req.URL)
+	adminTok := s.engine.SessionMgr.GetAdminSession().Token
+	raw, err := spec.FetchWithAuth(r.Context(), req.URL, adminTok)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -996,16 +1104,38 @@ func (s *Server) handleSpecImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	generated, err := s.replaceGeneratedScenarios(meta)
-	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusInternalServerError)
-		return
+	var generated []string
+	var byStrategy map[string]int
+
+	if req.AutoReplenish || len(req.Strategies) > 0 {
+		strats := req.Strategies
+		if len(strats) == 0 {
+			strats = []string{"smoke", "crud", "rbac", "negative"}
+		}
+		s.deleteGeneratedScenarios()
+		res := spec.ReplenishScenarios(meta, spec.ReplenishOptions{
+			Strategies:   strats,
+			MaxScenarios: 100,
+		})
+		for _, sc := range res.Scenarios {
+			if err := s.store.Save(sc); err == nil {
+				generated = append(generated, sc.Key)
+			}
+		}
+		byStrategy = res.ByStrategy
+	} else {
+		generated, err = s.replaceGeneratedScenarios(meta)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"meta":      meta,
-		"generated": generated,
+		"meta":       meta,
+		"generated":  generated,
+		"byStrategy": byStrategy,
 	})
 }
 
@@ -1084,7 +1214,7 @@ func (s *Server) replaceGeneratedScenarios(meta *spec.Meta) ([]string, error) {
 func (s *Server) deleteGeneratedScenarios() int {
 	removed := 0
 	for _, sc := range s.store.List() {
-		if !strings.HasPrefix(sc.Key, spec.GeneratedPrefix) {
+		if !strings.HasPrefix(sc.Key, "spec_") {
 			continue
 		}
 		if err := s.store.Delete(sc.Key); err == nil {
@@ -1092,6 +1222,63 @@ func (s *Server) deleteGeneratedScenarios() int {
 		}
 	}
 	return removed
+}
+
+// handleAnalysisCoverage serves GET /api/analysis/coverage.
+func (s *Server) handleAnalysisCoverage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	meta, _ := s.specs.Meta()
+	report := analysis.AnalyzeCoverage(meta, s.store.List())
+	_ = json.NewEncoder(w).Encode(report)
+}
+
+// handleAnalysisMetrics serves GET /api/analysis/metrics.
+func (s *Server) handleAnalysisMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	runs := s.orchestrator.GetHistory()
+	metrics := analysis.ComputeMetrics(runs)
+	_ = json.NewEncoder(w).Encode(metrics)
+}
+
+// handleAnalysisDiagnostics serves GET /api/analysis/diagnostics or /api/analysis/diagnostics/{id}.
+func (s *Server) handleAnalysisDiagnostics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := strings.TrimPrefix(r.URL.Path, "/api/analysis/diagnostics/")
+	id = strings.TrimPrefix(id, "/api/analysis/diagnostics")
+	id = strings.TrimSpace(id)
+
+	var run *runner.TestRun
+	if id != "" {
+		run = s.orchestrator.GetRun(id)
+	} else {
+		// Pick most recent failed run, or latest run from history
+		history := s.orchestrator.GetHistory()
+		for _, h := range history {
+			if h.Status == runner.RunFailed {
+				run = s.orchestrator.GetRun(h.ID)
+				break
+			}
+		}
+		if run == nil && len(history) > 0 {
+			run = s.orchestrator.GetRun(history[0].ID)
+		}
+	}
+
+	diag := analysis.DiagnoseRun(run)
+	_ = json.NewEncoder(w).Encode(diag)
 }
 
 func (s *Server) handleStands(w http.ResponseWriter, r *http.Request) {
@@ -1106,12 +1293,13 @@ func (s *Server) handleStands(w http.ResponseWriter, r *http.Request) {
 			Name       string `json:"name"`
 			BaseURL    string `json:"baseURL"`
 			VerifyCode string `json:"verifyCode"`
+			SwaggerURL string `json:"swaggerURL"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, fmt.Sprintf(`{"error":"invalid json: %v"}`, err), http.StatusBadRequest)
 			return
 		}
-		st, err := s.stands.Add(req.Name, req.BaseURL, req.VerifyCode)
+		st, err := s.stands.Add(req.Name, req.BaseURL, req.VerifyCode, req.SwaggerURL)
 		if err != nil {
 			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
 			return
@@ -1130,6 +1318,10 @@ func (s *Server) handleStandByID(w http.ResponseWriter, r *http.Request) {
 		s.handleStandActivate(w, r, id)
 		return
 	}
+	if id := strings.TrimSuffix(rest, "/sync-swagger"); id != rest && !strings.Contains(id, "/") && id != "" {
+		s.handleStandSyncSwagger(w, r, id)
+		return
+	}
 
 	id := rest
 	if id == "" || strings.Contains(id, "/") {
@@ -1145,6 +1337,7 @@ func (s *Server) handleStandByID(w http.ResponseWriter, r *http.Request) {
 			Name       string `json:"name"`
 			BaseURL    string `json:"baseURL"`
 			VerifyCode string `json:"verifyCode"`
+			SwaggerURL string `json:"swaggerURL"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, fmt.Sprintf(`{"error":"invalid json: %v"}`, err), http.StatusBadRequest)
@@ -1155,7 +1348,7 @@ func (s *Server) handleStandByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf(`{"error":"stand %q not found"}`, id), http.StatusNotFound)
 			return
 		}
-		if err := s.stands.Update(id, req.Name, req.BaseURL, req.VerifyCode); err != nil {
+		if err := s.stands.Update(id, req.Name, req.BaseURL, req.VerifyCode, req.SwaggerURL); err != nil {
 			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
 			return
 		}
@@ -1201,6 +1394,515 @@ func (s *Server) handleStandActivate(w http.ResponseWriter, r *http.Request, id 
 	}
 	s.applyStand(st)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "stand": st})
+}
+
+func (s *Server) handleStandSyncSwagger(w http.ResponseWriter, r *http.Request, id string) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	st, ok := s.stands.Get(id)
+	if !ok {
+		http.Error(w, fmt.Sprintf(`{"error":"stand %q not found"}`, id), http.StatusNotFound)
+		return
+	}
+
+	target := strings.TrimSpace(st.SwaggerURL)
+	if target == "" {
+		http.Error(w, `{"error":"У стенда не указан Swagger URL / путь к спецификации. Укажите его в настройках стенда."}`, http.StatusBadRequest)
+		return
+	}
+
+	adminTok := s.engine.SessionMgr.GetAdminSession().Token
+	raw, err := spec.FetchWithAuth(r.Context(), target, adminTok)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"Не удалось получить спецификацию: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	meta, err := spec.Parse(raw)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"Ошибка разбора спецификации: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+	meta.SourceURL = target
+
+	if err := s.specs.Save(meta, raw); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	// Auto-generate test scenarios across all smart strategies
+	s.deleteGeneratedScenarios()
+	res := spec.ReplenishScenarios(meta, spec.ReplenishOptions{
+		Strategies:   []string{"smoke", "crud", "rbac", "negative"},
+		MaxScenarios: 100,
+	})
+
+	savedCount := 0
+	savedKeys := make([]string, 0, len(res.Scenarios))
+	for _, sc := range res.Scenarios {
+		if err := s.store.Save(sc); err == nil {
+			savedCount++
+			savedKeys = append(savedKeys, sc.Key)
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":           "ok",
+		"standId":          st.ID,
+		"standName":        st.Name,
+		"meta":             meta,
+		"savedCount":       savedCount,
+		"savedKeys":        savedKeys,
+		"byStrategy":       res.ByStrategy,
+		"coveredEndpoints": res.CoveredEndpoints,
+	})
+}
+
+func resolveMobilePath(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw != "" && raw != "." {
+		return raw
+	}
+	candidates := []string{
+		"/locali_director",
+		"/Users/yusuff84/Documents/all project/flutter-director/locali_director",
+		"../flutter-director/locali_director",
+	}
+	for _, c := range candidates {
+		if info, err := os.Stat(c); err == nil && info.IsDir() {
+			return c
+		}
+	}
+	return "."
+}
+
+// handleMobileContractScan scans a mobile codebase directory (Flutter Dart, iOS Swift, Android Kotlin)
+// and runs contract compatibility analysis against current API endpoints.
+func (s *Server) handleMobileContractScan(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+		http.Error(w, fmt.Sprintf(`{"error":"invalid json: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	targetPath := resolveMobilePath(req.Path)
+	models, err := mobilecontract.ScanDirectory(targetPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	meta, _ := s.specs.Meta()
+	report := mobilecontract.AnalyzeCompatibility(models, meta, nil)
+
+	s.mobileMu.Lock()
+	s.mobileReport = report
+	s.mobileMu.Unlock()
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(report)
+}
+
+// handleMobileContractReport retrieves compatibility analysis for a query path.
+func (s *Server) handleMobileContractReport(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		s.mobileMu.RLock()
+		cached := s.mobileReport
+		s.mobileMu.RUnlock()
+		if cached != nil {
+			_ = json.NewEncoder(w).Encode(cached)
+			return
+		}
+	}
+
+	targetPath := resolveMobilePath(path)
+	models, err := mobilecontract.ScanDirectory(targetPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	meta, _ := s.specs.Meta()
+	report := mobilecontract.AnalyzeCompatibility(models, meta, nil)
+
+	s.mobileMu.Lock()
+	s.mobileReport = report
+	s.mobileMu.Unlock()
+
+	_ = json.NewEncoder(w).Encode(report)
+}
+
+type gitlabConfigData struct {
+	RepoURL    string `json:"repoUrl"`
+	Token      string `json:"token"`
+	LastBranch string `json:"lastBranch"`
+}
+
+func (s *Server) gitlabConfigPath() string {
+	return filepath.Join(s.cfg.DataDir, "gitlab_settings.json")
+}
+
+func (s *Server) loadGitLabConfig() gitlabConfigData {
+	var cfg gitlabConfigData
+	data, err := os.ReadFile(s.gitlabConfigPath())
+	if err == nil {
+		_ = json.Unmarshal(data, &cfg)
+	}
+	return cfg
+}
+
+func (s *Server) saveGitLabConfig(cfg gitlabConfigData) {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err == nil {
+		_ = os.WriteFile(s.gitlabConfigPath(), data, 0o600)
+	}
+}
+
+func (s *Server) handleMobileGitLabConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		cfg := s.loadGitLabConfig()
+		_ = json.NewEncoder(w).Encode(cfg)
+	case http.MethodPost:
+		var req gitlabConfigData
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"invalid json: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+		s.saveGitLabConfig(req)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleMobileGitLabBranches(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		RepoURL string `json:"repoUrl"`
+		Token   string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"invalid json: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	repoURL := strings.TrimSpace(req.RepoURL)
+	token := strings.TrimSpace(req.Token)
+	saved := s.loadGitLabConfig()
+	if token == "" {
+		token = saved.Token
+	}
+	if repoURL == "" {
+		repoURL = saved.RepoURL
+	}
+	if repoURL == "" {
+		repoURL = "https://lokaligitlabru.ru/app/locali-director-flutter.git"
+	}
+
+	serverURL, projectPath, err := mobilecontract.ParseGitLabRepoURL(repoURL, "https://lokaligitlabru.ru")
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	branches, err := mobilecontract.FetchGitLabBranches(r.Context(), serverURL, projectPath, token)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	// Save settings
+	s.saveGitLabConfig(gitlabConfigData{
+		RepoURL:    repoURL,
+		Token:      token,
+		LastBranch: saved.LastBranch,
+	})
+
+	defaultBranch := ""
+	for _, b := range branches {
+		if b.Default {
+			defaultBranch = b.Name
+			break
+		}
+	}
+	if defaultBranch == "" && len(branches) > 0 {
+		defaultBranch = branches[0].Name
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"serverUrl":     serverURL,
+		"projectPath":   projectPath,
+		"branches":      branches,
+		"defaultBranch": defaultBranch,
+	})
+}
+
+func (s *Server) handleMobileGitLabScan(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		RepoURL string `json:"repoUrl"`
+		Token   string `json:"token"`
+		Branch  string `json:"branch"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"invalid json: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	repoURL := strings.TrimSpace(req.RepoURL)
+	token := strings.TrimSpace(req.Token)
+	branch := strings.TrimSpace(req.Branch)
+
+	saved := s.loadGitLabConfig()
+	if token == "" {
+		token = saved.Token
+	}
+	if repoURL == "" {
+		repoURL = saved.RepoURL
+	}
+	if branch == "" {
+		branch = saved.LastBranch
+	}
+	if branch == "" {
+		branch = "main"
+	}
+
+	serverURL, projectPath, err := mobilecontract.ParseGitLabRepoURL(repoURL, "https://lokaligitlabru.ru")
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	models, err := mobilecontract.DownloadAndScanGitLabBranch(r.Context(), serverURL, projectPath, branch, token, s.cfg.DataDir)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	meta, _ := s.specs.Meta()
+	report := mobilecontract.AnalyzeCompatibility(models, meta, nil)
+
+	s.mobileMu.Lock()
+	s.mobileReport = report
+	s.mobileMu.Unlock()
+
+	// Update saved branch
+	s.saveGitLabConfig(gitlabConfigData{
+		RepoURL:    repoURL,
+		Token:      token,
+		LastBranch: branch,
+	})
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(report)
+}
+
+func (s *Server) handleMobileApps(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"apps": s.mobileApps.List()})
+	case http.MethodPost:
+		var app mobilecontract.MobileApp
+		if err := json.NewDecoder(r.Body).Decode(&app); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"invalid json: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+		saved, err := s.mobileApps.Add(app)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(saved)
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleMobileAppByID(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/mobilecontract/apps/")
+	if id := strings.TrimSuffix(rest, "/scan"); id != rest && !strings.Contains(id, "/") && id != "" {
+		s.handleMobileAppScan(w, r, id)
+		return
+	}
+
+	id := rest
+	if id == "" || strings.Contains(id, "/") {
+		http.Error(w, `{"error":"app id is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		app, ok := s.mobileApps.Get(id)
+		if !ok {
+			http.Error(w, fmt.Sprintf(`{"error":"app %q not found"}`, id), http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(app)
+	case http.MethodPut:
+		var app mobilecontract.MobileApp
+		if err := json.NewDecoder(r.Body).Decode(&app); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"invalid json: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+		if err := s.mobileApps.Update(id, app); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+			return
+		}
+		updated, _ := s.mobileApps.Get(id)
+		_ = json.NewEncoder(w).Encode(updated)
+	case http.MethodDelete:
+		if err := s.mobileApps.Delete(id); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) scanMobileApp(r *http.Request, app mobilecontract.MobileApp) (*mobilecontract.CompatibilityReport, error) {
+	var models []mobilecontract.MobileModel
+	var err error
+
+	token := app.Token
+	if token == "" {
+		token = s.loadGitLabConfig().Token
+	}
+
+	if app.SourceType == "gitlab" && app.RepoURL != "" && token != "" {
+		srvURL, projPath, perr := mobilecontract.ParseGitLabRepoURL(app.RepoURL, "https://lokaligitlabru.ru")
+		if perr == nil {
+			branch := app.Branch
+			if branch == "" {
+				branch = "main"
+			}
+			models, err = mobilecontract.DownloadAndScanGitLabBranch(r.Context(), srvURL, projPath, branch, token, s.cfg.DataDir)
+		}
+	}
+
+	// Fallback to local path if gitlab scan didn't run or if local path is configured
+	if len(models) == 0 && app.LocalPath != "" {
+		targetPath := resolveMobilePath(app.LocalPath)
+		models, err = mobilecontract.ScanDirectory(targetPath)
+	}
+
+	if err != nil && len(models) == 0 {
+		return nil, err
+	}
+
+	meta, _ := s.specs.Meta()
+	report := mobilecontract.AnalyzeCompatibility(models, meta, nil, app.Name)
+	_ = s.mobileApps.SetReport(app.ID, report)
+	return report, nil
+}
+
+func (s *Server) handleMobileAppScan(w http.ResponseWriter, r *http.Request, id string) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	app, ok := s.mobileApps.Get(id)
+	if !ok {
+		http.Error(w, fmt.Sprintf(`{"error":"app %q not found"}`, id), http.StatusNotFound)
+		return
+	}
+
+	report, err := s.scanMobileApp(r, app)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	s.mobileMu.Lock()
+	s.mobileReport = report
+	s.mobileMu.Unlock()
+
+	_ = json.NewEncoder(w).Encode(report)
+}
+
+func (s *Server) handleMobileAppsScanAll(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	apps := s.mobileApps.List()
+	combined := &mobilecontract.CompatibilityReport{
+		Timestamp:  time.Now().UTC(),
+		ByPlatform: make(map[mobilecontract.Platform]int),
+		ByApp:      make(map[string]mobilecontract.AppSummary),
+		Results:    make([]mobilecontract.ModelCompatibility, 0),
+	}
+
+	for _, app := range apps {
+		rep, err := s.scanMobileApp(r, app)
+		if err != nil {
+			log.Printf("[MOBILE] scan app %s error: %v", app.Name, err)
+			continue
+		}
+		combined.TotalModels += rep.TotalModels
+		combined.Compatible += rep.Compatible
+		combined.Crashes += rep.Crashes
+		combined.Warnings += rep.Warnings
+		combined.Results = append(combined.Results, rep.Results...)
+		for p, cnt := range rep.ByPlatform {
+			combined.ByPlatform[p] += cnt
+		}
+		for aName, sum := range rep.ByApp {
+			sum.AppID = app.ID
+			combined.ByApp[aName] = sum
+		}
+	}
+
+	if combined.TotalModels > 0 {
+		combined.PassPercentage = float64(combined.Compatible) / float64(combined.TotalModels) * 100.0
+	}
+
+	s.mobileMu.Lock()
+	s.mobileReport = combined
+	s.mobileMu.Unlock()
+
+	_ = json.NewEncoder(w).Encode(combined)
 }
 
 // applyStand points the engine at the given stand: swaps the base URL and,

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	mathrand "math/rand"
+	"sync/atomic"
 )
 
 // ReservedTestPhone / ReservedTestCode mirror the DEBUG-only backdoor identity
@@ -24,18 +25,28 @@ const (
 	operatorCourier = 22
 )
 
+var phoneCounter uint64
+
+func init() {
+	var buf [8]byte
+	if _, err := cryptorand.Read(buf[:]); err == nil {
+		phoneCounter = binary.BigEndian.Uint64(buf[:])
+	} else {
+		phoneCounter = uint64(mathrand.Int63())
+	}
+}
+
 // newPhone returns a syntactically valid RF mobile number in the exact shape
 // normalizePhoneNumber accepts: +7 followed by ten digits.
 //
-// The previous fixtures built numbers like "+7922" + six digits, which is ten
-// digits in total — normalizePhoneNumber returns null for those and courier /
-// restaurant registration was rejected before it ever reached the handler.
-//
-// The reserved test number is never produced: it is a shared identity with a
-// fixed OTP and would silently break isolation.
+// Uses a full linear congruential permutation over 10^7 so consecutive calls
+// are mathematically guaranteed to never collide within 10,000,000 draws.
 func newPhone(operator int) string {
 	for {
-		phone := fmt.Sprintf("+79%02d%07d", operator%100, randBelow(10_000_000))
+		seq := atomic.AddUint64(&phoneCounter, 1)
+		// 32452843 is coprime to 10_000_000 (factors 2 and 5), guaranteeing full period
+		val := (seq*32452843 + 1) % 10_000_000
+		phone := fmt.Sprintf("+79%02d%07d", operator%100, val)
 		if phone != ReservedTestPhone {
 			return phone
 		}

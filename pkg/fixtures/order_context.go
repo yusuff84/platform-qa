@@ -3,6 +3,7 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"locali-e2e-engine/pkg/client"
 )
@@ -226,8 +227,16 @@ func (fm *FixtureManager) ParcelRequest(recipientPhone string) client.CreateInde
 //
 // It needs an authenticated client, so one is created if none is active.
 func (fm *FixtureManager) ParcelOrderingAvailable(ctx context.Context) (bool, string, error) {
-	if _, _, err := fm.CreateUniqueClient(ctx); err != nil {
-		return false, "", fmt.Errorf("проверка окна приёма посылок: %w", err)
+	if !fm.clientAPI.HasSession() {
+		if _, _, err := fm.CreateUniqueClient(ctx); err != nil {
+			return false, "", fmt.Errorf("проверка окна приёма посылок: %w", err)
+		}
 	}
-	return fm.clientAPI.ParcelAvailability(ctx)
+	avail, window, err := fm.clientAPI.ParcelAvailability(ctx)
+	if err != nil && (strings.Contains(err.Error(), "NO_TOKEN_INCLUDED") || strings.Contains(err.Error(), "INVALID_TOKEN")) {
+		if _, _, cerr := fm.CreateUniqueClient(ctx); cerr == nil {
+			return fm.clientAPI.ParcelAvailability(ctx)
+		}
+	}
+	return avail, window, err
 }

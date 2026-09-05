@@ -93,11 +93,11 @@ function showToast(message, type) {
 
   const icons = { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info' };
   const colors = {
-    success: 'border-green-500/40 bg-green-950/90 text-green-200',
-    error: 'border-red-500/40 bg-red-950/90 text-red-200',
-    info: 'border-blue-500/40 bg-slate-900/95 text-slate-200',
+    success: 'border-zinc-700 bg-zinc-900/95 text-zinc-100',
+    error: 'border-red-800/40 bg-red-950/90 text-red-200',
+    info: 'border-zinc-700 bg-zinc-900/95 text-zinc-200',
   };
-  const iconColors = { success: 'text-green-400', error: 'text-red-400', info: 'text-blue-400' };
+  const iconColors = { success: 'text-emerald-400', error: 'text-red-400', info: 'text-zinc-400' };
 
   const el = document.createElement('div');
   el.className = 'toast pointer-events-auto flex items-start gap-2.5 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur text-xs ' + (colors[type] || colors.info);

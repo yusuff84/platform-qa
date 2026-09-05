@@ -379,3 +379,98 @@ curl localhost:18080/api/fixtures/accounts
 
 Аналогично API-набор, где ничего не оборвалось, но три проверки провалились,
 теперь отдаёт `FAILED`, а не `PASSED`.
+
+---
+
+## 8. Автопополнение сценариев (Scenario Auto-Replenishment)
+
+Платформа поддерживает интеллектуальную генерацию сценариев из OpenAPI/Swagger спецификации стенда с 4-мя стратегиями покрытия:
+
+| Стратегия | Назначение | Формируемые проверки |
+|-----------|------------|-----------------------|
+| `smoke` | Быстрая проверка доступности | Запросы ко всем эндпоинтам с корректными ролями, query-параметрами и валидным телом (`!5xx`) |
+| `crud` | Сквозной жизненный цикл сущностей | Цепочка: `POST` (создание + извлечение `$.id`) → `GET` (чтение по ID) → `PUT/PATCH` (обновление) → `DELETE` (удаление) → `GET` (проверка 404) |
+| `rbac` | Матрица ролевой безопасности | Проверка гейтов: отказ без токена (`401`) и межролевые ограничения (`403` для чужих ролей) |
+| `negative` | Валидация входных данных | Проверка устойчивости к пустым телам `{}` и нарушенным типам схемы данных (`4xx`) |
+
+### 8.1 Умное определение ролей и параметров
+- Эндпоинты `/admin/*` автоматически адресуются администратору (`role: admin`).
+- Эндпоинты `/rests/*`, `/dishes/*`, `/menu/*` адресуются ресторану (`role: rest`).
+- Эндпоинты `/couriers/*` адресуются курьеру (`role: courier`).
+- Эндпоинты `/clients/*`, `/cart/*`, `/orders/*` адресуются клиенту (`role: client`).
+- Шаблоны путей (`{id}`, `{phone}`, `{uuid}`) заменяются на валидные тестовые сущности.
+
+### 8.2 Использование через REST API
+```bash
+# Предпросмотр сценариев (без сохранения)
+curl -X POST http://localhost:18080/api/scenarios/replenish \
+  -H 'Content-Type: application/json' \
+  -d '{"strategies":["smoke","crud","negative"],"preview":true}'
+
+# Автопополнение только непокрытых эндпоинтов с сохранением
+curl -X POST http://localhost:18080/api/scenarios/replenish \
+  -H 'Content-Type: application/json' \
+  -d '{"strategies":["crud","rbac"],"uncoveredOnly":true,"preview":false}'
+```
+
+---
+
+## 9. Анализ & Метрики (Coverage, RCA & Performance)
+
+Вкладка **«Анализ & Метрики»** предоставляет аналитический центр тестирования продуктового уровня.
+
+### 9.1 Карта покрытия спецификации API (Coverage)
+- Расчёт процента покрытия эндпоинтов OpenAPI на основе встроенных сьютов и кастомных сценариев.
+- Детализация по HTTP-методам (`GET`, `POST`, `PUT`, `DELETE`), функциональным тегам и ролям.
+- Интерактивный список непокрытых ручек с кнопкой создания теста в 1 клик.
+- Эндпоинт: `GET /api/analysis/coverage`.
+
+### 9.2 Интеллектуальный разбор сбоев (Root Cause Analysis / RCA)
+Автоматическая экспертная диагностика любого упавшего прогона с выявлением первопричины и выдачей рекомендаций инженеру:
+- **`RATE_LIMIT_COOLDOWN` (HTTP 429)**: превышение лимитов попыток ввода OTP или интервала 60с.
+- **`AUTH_EXPIRED` (HTTP 401)**: отсутствие, порча или истечение Bearer JWT токена.
+- **`RBAC_FORBIDDEN` (HTTP 403)**: попытка вызова с чужими ролевыми claims.
+- **`STATE_CONFLICT` (HTTP 409)**: нелегальный переход в State Machine или отмена в процессе готовки.
+- **`OUTSIDE_WORKING_HOURS` (HTTP 422)**: запуск посылочных тестов вне окна 10:00–23:00.
+- **`PRECONDITION_FAILED`**: пустая корзина, закрытый ресторан или ненастроенный тариф Locali.
+- **`SERVER_PANIC` (HTTP 5xx)**: необработанное исключение или падение бэкенда стенда.
+- **`VALIDATION_ERROR` (HTTP 400/422)**: несоответствие схемы запроса контракту.
+- Эндпоинты: `GET /api/analysis/diagnostics`, `GET /api/analysis/diagnostics/{runId}`.
+
+### 9.3 Производительность и качество (Performance & Stability)
+- Агрегированный **Pass Rate** по истории запусков.
+- Задержки вызовов: среднее время, **медиана p50** и хвост задержек **p95**.
+- **Flaky Tests Detector**: выявление нестабильных сьютов с расчётом коэффициента флейкинеса.
+- Рейтинг самых медленных проверок (Top Latency) для оптимизации узких мест бэкенда.
+- Эндпоинт: `GET /api/analysis/metrics`.
+
+---
+
+## 10. Валидация контрактов мобильных DTO через GitLab
+
+Модуль **`pkg/mobilecontract`** защищает мобильные приложения от аварий рантайма (`TypeError: null is not a subtype of type String`, `DecodingError`, `NullPointerException`) при изменении контрактов бэкенда.
+
+### 10.1 Поддерживаемые платформы и языки:
+- **Flutter (Dart)**: анализ `.dart` файлов, `required this.field`, `final String id;`, аннотаций `@JsonKey` и хелперов `readString(json, ['courier_id', 'id'])`.
+- **Native iOS (Swift)**: анализ `.swift` файлов, `struct Model: Codable, Decodable`, non-nullable свойств (`let id: String`) и маппинга `enum CodingKeys`.
+- **Native Android (Kotlin)**: анализ `.kt` файлов, `data class Model(val id: String)`, аннотаций `@SerializedName` (Gson), `@SerialName` (Kotlinx), `@Json` (Moshi).
+
+### 10.2 Интеграция с GitLab (включая self-hosted):
+- Поддержка ссылок вида `https://lokaligitlabru.ru/app/locali-director-flutter.git`, `https://gitlab.com/group/project` или SSH-ссылок.
+- Загрузка списка веток репозитория через GitLab API (`GET /api/v4/projects/:id/repository/branches`) по Personal/Project Access Token (`PRIVATE-TOKEN`).
+- Скачивание архива ветки (`repository/archive.tar.gz`), распаковка DTO файлов и проведение глубокого AST-анализа совместимости полей с ответами бэкенда.
+- Безопасное сохранение реквизитов (токен не передаётся вовне).
+
+### 10.3 Использование через REST API:
+```bash
+# Получить список веток репозитория
+curl -X POST http://localhost:18080/api/mobilecontract/gitlab/branches \
+  -H "Content-Type: application/json" \
+  -d '{"repoUrl":"https://lokaligitlabru.ru/app/locali-director-flutter.git","token":"<glpat-token>"}'
+
+# Запустить проверку совместимости выбранной ветки
+curl -X POST http://localhost:18080/api/mobilecontract/gitlab/scan \
+  -H "Content-Type: application/json" \
+  -d '{"repoUrl":"https://lokaligitlabru.ru/app/locali-director-flutter.git","token":"<glpat-token>","branch":"main"}'
+```
+

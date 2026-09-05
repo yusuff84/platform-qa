@@ -10,7 +10,7 @@ const SCENARIO_KEY_PATTERN = /^[a-z][a-z0-9_]{2,39}$/;
 const STEP_ID_PATTERN = /^[a-z][a-z0-9_]*$/;
 const HTTP_ROLES = ['client', 'rest', 'courier', 'admin', 'none'];
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
-const EXPECT_STATUS_OPTIONS = ['', '200', '201', '204', '400', '401', '403', '404', '2xx', '4xx', '5xx'];
+const EXPECT_STATUS_OPTIONS = ['', '200', '201', '204', '400', '401', '403', '404', '405', '409', '422', '429', '2xx', '4xx', '5xx', '!4xx', '!5xx'];
 const ASSERT_OPS_HTTP = ['eq', 'neq', 'contains', 'exists'];
 const ASSERT_OPS_STEP = ['notEmpty', 'eq', 'neq', 'contains'];
 const STEP_TYPES = [
@@ -19,9 +19,9 @@ const STEP_TYPES = [
   { value: 'assert', label: 'Проверка переменной (assert)' },
 ];
 
-const SC_INP = 'w-full bg-slate-900 border border-darkborder rounded-md px-2 py-1.5 text-[11px] text-white placeholder-slate-600 focus:border-fuchsia-500/50 focus:outline-none';
-const SC_LBL = 'block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1';
-const SC_BTN_MINI = 'px-1.5 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-darkborder rounded-md transition';
+const SC_INP = 'w-full rounded-md px-2 py-1.5 text-[11px]';
+const SC_LBL = 'block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1';
+const SC_BTN_MINI = 'px-1.5 py-1 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-darkborder rounded-md transition';
 
 let scenariosRegistry = [];
 let editorSuitesRegistry = [];
@@ -143,20 +143,20 @@ function renderScenarioList() {
     c.innerHTML = emptyStateHtml(
       'fa-flask',
       'Кастомных сценариев пока нет. Создайте первый — он появится в сетке тестов.',
-      '<button onclick="newScenario()" class="px-3 py-1.5 text-xs bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold rounded-lg transition"><i class="fa-solid fa-plus mr-1"></i>Создайте первый сценарий</button>'
+      '<button onclick="newScenario()" class="px-3 py-1.5 text-xs bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-sm transition"><i class="fa-solid fa-plus mr-1"></i>Создайте первый сценарий</button>'
     );
     return;
   }
   const activeKey = editorState && !editorState.isNew ? editorState.originalKey : null;
   c.innerHTML = scenariosRegistry.map(sc => {
     const dep = (sc.dependsOn || []).map(d =>
-      `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] font-mono text-slate-400 border border-darkborder" title="Зависит от сюта">${escapeHtml(d)}</span>`
+      `<span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[9px] font-mono text-zinc-400 border border-darkborder" title="Зависит от сюта">${escapeHtml(d)}</span>`
     ).join(' ');
     const active = sc.key === activeKey;
-    return `<button type="button" onclick="editScenario('${escAttr(sc.key)}')" class="w-full text-left p-2.5 rounded-lg border transition ${active ? 'border-fuchsia-500/60 bg-fuchsia-500/10 ring-1 ring-fuchsia-500/30' : 'border-darkborder bg-slate-900/70 hover:border-slate-600'}">
+    return `<button type="button" onclick="editScenario('${escAttr(sc.key)}')" class="w-full text-left p-2.5 rounded-lg border transition ${active ? 'border-zinc-500 bg-zinc-800 ring-1 ring-zinc-500/40' : 'border-darkborder bg-zinc-900/70 hover:border-zinc-700'}">
       <div class="flex items-center justify-between gap-2">
-        <span class="font-mono text-[11px] ${active ? 'text-fuchsia-300' : 'text-cyan-400'}">${escapeHtml(sc.key)}</span>
-        <span class="text-[9px] font-mono text-slate-500 shrink-0">${(sc.steps || []).length} шаг.</span>
+        <span class="font-mono text-[11px] ${active ? 'text-white font-semibold' : 'text-zinc-300'}">${escapeHtml(sc.key)}</span>
+        <span class="text-[9px] font-mono text-zinc-500 shrink-0">${(sc.steps || []).length} шаг.</span>
       </div>
       <div class="text-[11px] text-white mt-0.5 truncate">${escapeHtml(sc.title)}</div>
       ${dep ? `<div class="flex flex-wrap gap-1 mt-1">${dep}</div>` : ''}
@@ -294,10 +294,10 @@ function updateModeBadge() {
   if (!b) return;
   if (editorState.isNew) {
     b.textContent = 'НОВЫЙ';
-    b.className = 'text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 bg-green-500/10 text-green-400 border-green-500/30';
+    b.className = 'text-[10px] font-mono font-medium px-2 py-0.5 rounded border shrink-0 bg-zinc-800 text-zinc-300 border-zinc-700';
   } else {
     b.textContent = 'РЕДАКТИРОВАНИЕ · ' + editorState.originalKey;
-    b.className = 'text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 bg-blue-500/10 text-blue-400 border-blue-500/30';
+    b.className = 'text-[10px] font-mono font-medium px-2 py-0.5 rounded border shrink-0 bg-zinc-800 text-zinc-200 border-zinc-600';
   }
 }
 
@@ -320,13 +320,13 @@ function renderDependsChips() {
   const exclude = editorState.isNew ? null : editorState.originalKey;
   const opts = editorSuitesRegistry.filter(s => s.key !== exclude);
   if (!opts.length) {
-    c.innerHTML = '<span class="text-[10px] text-slate-500 italic">Список сютов пуст (/api/suites недоступен?). Зависимости можно указать позже.</span>';
+    c.innerHTML = '<span class="text-[10px] text-zinc-500 italic">Список сютов пуст (/api/suites недоступен?). Зависимости можно указать позже.</span>';
     return;
   }
   c.innerHTML = opts.map(s => {
     const sel = editorState.dependsOn.includes(s.key);
     return `<button type="button" onclick="toggleDepends('${escAttr(s.key)}')" title="${escAttr(s.title || s.key)}"
-      class="px-2 py-1 rounded-lg border text-[10px] font-mono transition ${sel ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50' : 'bg-slate-800 text-slate-400 border-darkborder hover:border-slate-500'}">
+      class="px-2 py-1 rounded-lg border text-[10px] font-mono transition ${sel ? 'bg-white text-zinc-950 border-white font-semibold' : 'bg-zinc-800 text-zinc-400 border-darkborder hover:border-zinc-500'}">
       <i class="fa-${sel ? 'solid fa-square-check' : 'regular fa-square'} mr-1"></i>${escapeHtml(s.key)}
     </button>`;
   }).join('');
