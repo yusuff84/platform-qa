@@ -457,6 +457,271 @@ function harvestEditor() {
   editorState.steps = harvestSteps();
 }
 
+let currentScenarioEditorMode = 'graph';
+
+function setScenarioEditorMode(mode) {
+  currentScenarioEditorMode = mode || 'graph';
+  harvestEditor();
+
+  const gView = document.getElementById('scenarioGraphView');
+  const fView = document.getElementById('scenarioFormView');
+  const jView = document.getElementById('scenarioJsonView');
+
+  if (gView) gView.classList.toggle('hidden', currentScenarioEditorMode !== 'graph');
+  if (fView) fView.classList.toggle('hidden', currentScenarioEditorMode !== 'form');
+  if (jView) jView.classList.toggle('hidden', currentScenarioEditorMode !== 'json');
+
+  ['graph', 'form', 'json'].forEach(m => {
+    const btn = document.getElementById(`sc-mode-btn-${m}`);
+    if (btn) {
+      if (m === currentScenarioEditorMode) {
+        btn.className = 'px-3 py-1.5 rounded-md font-semibold transition flex items-center gap-1.5 bg-white text-zinc-950 shadow-sm';
+      } else {
+        btn.className = 'px-3 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 text-zinc-400 hover:text-white';
+      }
+    }
+  });
+
+  if (currentScenarioEditorMode === 'graph') {
+    renderScenarioGraph();
+  } else if (currentScenarioEditorMode === 'form') {
+    renderSteps();
+  } else if (currentScenarioEditorMode === 'json') {
+    updateScenarioJson();
+  }
+}
+window.setScenarioEditorMode = setScenarioEditorMode;
+
+function focusStepInForm(idx) {
+  setScenarioEditorMode('form');
+  setTimeout(() => {
+    const card = document.querySelector(`.step-card[data-step-index="${idx}"]`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('ring-2', 'ring-zinc-400');
+      setTimeout(() => card.classList.remove('ring-2', 'ring-zinc-400'), 1500);
+    }
+  }, 100);
+}
+window.focusStepInForm = focusStepInForm;
+
+function insertStepAt(idx, type) {
+  harvestEditor();
+  const step = makeStep(type || 'http');
+  editorState.steps.splice(idx, 0, step);
+  renderSteps();
+  renderScenarioGraph();
+  updateScenarioJson();
+  toastSuccess(`Узел шага добавлен на позицию #${idx + 1}`);
+}
+window.insertStepAt = insertStepAt;
+
+function renderScenarioGraph() {
+  const canvas = document.getElementById('scenarioGraphCanvas');
+  const counter = document.getElementById('graphStepCount');
+  if (!canvas || !editorState) return;
+
+  const steps = editorState.steps || [];
+  if (counter) {
+    counter.textContent = `${steps.length} ${pluralRu(steps.length, ['узел', 'узла', 'узлов'])}`;
+  }
+
+  // 1. Start Node (Vars)
+  const varCount = (editorState.vars || []).filter(v => v.name).length;
+  const varsHtml = varCount
+    ? editorState.vars.filter(v => v.name).map(v => `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700 truncate max-w-[180px]">${escapeHtml(v.name)}=${escapeHtml(v.value || '""')}</span>`).join('')
+    : '<span class="text-[10px] text-zinc-500 italic">Без переменных</span>';
+
+  let html = `
+    <!-- START NODE -->
+    <div class="flow-node p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center gap-1">
+          <i class="fa-solid fa-play text-[8px] text-emerald-400"></i>СТАРТ
+        </span>
+        <span class="text-[10px] font-mono text-zinc-500">Вход</span>
+      </div>
+      <div>
+        <div class="text-xs font-semibold text-white">Инициализация</div>
+        <div class="flex flex-wrap gap-1 mt-1.5">${varsHtml}</div>
+      </div>
+    </div>
+  `;
+
+  // Connector between Start and Step 1
+  html += `
+    <div class="flow-connector">
+      <div class="flow-line"></div>
+      <i class="fa-solid fa-chevron-right flow-arrow-icon"></i>
+    </div>
+  `;
+
+  // 2. Step Nodes
+  steps.forEach((step, idx) => {
+    const isHttp = step.type === 'http';
+    const isDelay = step.type === 'delay';
+    const isAssert = step.type === 'assert';
+
+    const typeBadge = isHttp
+      ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-800 text-zinc-100 border border-zinc-700">${escapeHtml(step.method || 'GET')}</span>`
+      : isDelay
+      ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700"><i class="fa-solid fa-hourglass-half mr-1 text-zinc-400"></i>${escapeHtml(step.ms || '500')}мс</span>`
+      : `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700"><i class="fa-solid fa-clipboard-check mr-1 text-zinc-400"></i>ASSERT</span>`;
+
+    const roleBadge = isHttp && step.role && step.role !== 'none'
+      ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-800 text-zinc-300 border border-darkborder">${escapeHtml(step.role)}</span>`
+      : '';
+
+    const statusExpect = isHttp && step.expectStatus
+      ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-800 text-zinc-300 border border-darkborder">${escapeHtml(step.expectStatus)}</span>`
+      : '';
+
+    let contentHtml = '';
+    if (isHttp) {
+      contentHtml = `
+        <div class="font-mono text-[11px] text-zinc-200 truncate bg-zinc-950 px-2 py-1 rounded border border-darkborder" title="${escAttr(step.path || '/...')}">
+          ${escapeHtml(step.path || '/api/...')}
+        </div>
+      `;
+    } else if (isDelay) {
+      contentHtml = `
+        <div class="text-xs text-zinc-300 flex items-center gap-1.5">
+          <i class="fa-regular fa-clock text-zinc-500"></i>
+          <span>Пауза: <strong class="text-white">${escapeHtml(step.ms || '500')} мс</strong></span>
+        </div>
+      `;
+    } else {
+      contentHtml = `
+        <div class="font-mono text-[11px] text-zinc-200 bg-zinc-950 px-2 py-1 rounded border border-darkborder truncate" title="${escAttr(step.left)} ${escAttr(step.op)} ${escAttr(step.value)}">
+          ${escapeHtml(step.left || 'left')} <span class="text-zinc-500">${escapeHtml(step.op)}</span> ${escapeHtml(step.value || '')}
+        </div>
+      `;
+    }
+
+    // Extracted variables
+    let extractsHtml = '';
+    if (isHttp && step.extract && step.extract.length > 0) {
+      extractsHtml = `
+        <div class="pt-1.5 border-t border-darkborder flex items-center gap-1 flex-wrap">
+          <span class="text-[9px] font-mono text-zinc-500 uppercase">Экстракт:</span>
+          ${step.extract.map(e => `<span class="px-1 py-0.2 rounded text-[9px] font-mono bg-zinc-800 text-zinc-200 border border-zinc-700 truncate max-w-[110px]" title="${escAttr(e.k)} ← ${escAttr(e.v)}">+${escapeHtml(e.k)}</span>`).join('')}
+        </div>
+      `;
+    }
+
+    html += `
+      <!-- NODE STEP ${idx + 1} -->
+      <div class="flow-node p-3 space-y-2 cursor-pointer" onclick="focusStepInForm(${idx})">
+        <div class="flex items-center justify-between gap-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            ${typeBadge}
+            <span class="text-[10px] font-mono text-zinc-400">#${idx + 1}</span>
+            ${roleBadge}
+            ${statusExpect}
+          </div>
+          <div class="flex items-center gap-1 shrink-0" onclick="event.stopPropagation()">
+            ${idx > 0 ? `<button onclick="moveStep(${idx}, -1)" type="button" class="w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] flex items-center justify-center transition" title="Сдвинуть левее"><i class="fa-solid fa-arrow-left"></i></button>` : ''}
+            ${idx < steps.length - 1 ? `<button onclick="moveStep(${idx}, 1)" type="button" class="w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] flex items-center justify-center transition" title="Сдвинуть правее"><i class="fa-solid fa-arrow-right"></i></button>` : ''}
+            <button onclick="removeStep(${idx})" type="button" class="w-5 h-5 rounded bg-zinc-800 hover:bg-red-950 text-zinc-400 hover:text-red-400 text-[10px] flex items-center justify-center transition" title="Удалить узел"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs font-semibold text-white truncate" title="${escAttr(step.title || step.id)}">${escapeHtml(step.title || step.id)}</div>
+          <div class="text-[10px] font-mono text-zinc-500 truncate">${escapeHtml(step.id)}</div>
+        </div>
+
+        ${contentHtml}
+        ${extractsHtml}
+      </div>
+    `;
+
+    // Connector with insert button between nodes
+    html += `
+      <div class="flow-connector flex flex-col items-center">
+        <div class="flex items-center">
+          <div class="flow-line"></div>
+          <button onclick="event.stopPropagation(); insertStepAt(${idx + 1})" title="Вставить шаг между узлами" class="w-5 h-5 rounded-full bg-zinc-800 hover:bg-white hover:text-zinc-950 text-zinc-400 border border-darkborder flex items-center justify-center text-[10px] transition shadow-sm shrink-0">
+            <i class="fa-solid fa-plus text-[9px]"></i>
+          </button>
+          <div class="flow-line"></div>
+          <i class="fa-solid fa-chevron-right flow-arrow-icon"></i>
+        </div>
+      </div>
+    `;
+  });
+
+  // 3. End Node (Success)
+  html += `
+    <!-- END NODE -->
+    <div class="flow-node p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center gap-1">
+          <i class="fa-solid fa-flag-checkered text-[9px] text-emerald-400"></i>ФИНИШ
+        </span>
+        <span class="text-[10px] font-mono text-zinc-500">Завершение</span>
+      </div>
+      <div>
+        <div class="text-xs font-semibold text-white">Успешное выполнение</div>
+        <div class="text-[10px] text-zinc-400 mt-1">Все утверждения сценария верны</div>
+      </div>
+    </div>
+  `;
+
+  canvas.innerHTML = html;
+}
+
+function updateScenarioJson() {
+  const editor = document.getElementById('scenarioJsonEditor');
+  if (!editor || !editorState) return;
+  const specObj = {
+    key: editorState.key,
+    title: editorState.title,
+    description: editorState.description,
+    tags: editorState.tagsRaw ? editorState.tagsRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+    category: 'custom',
+    vars: (editorState.vars || []).reduce((acc, v) => { if (v.name) acc[v.name] = v.value; return acc; }, {}),
+    dependsOn: editorState.dependsOn || [],
+    steps: editorState.steps || []
+  };
+  editor.value = JSON.stringify(specObj, null, 2);
+}
+
+function copyScenarioJson() {
+  const editor = document.getElementById('scenarioJsonEditor');
+  if (!editor) return;
+  navigator.clipboard.writeText(editor.value).then(() => {
+    toastSuccess('JSON спецификация сценария скопирована в буфер!');
+  });
+}
+window.copyScenarioJson = copyScenarioJson;
+
+function applyScenarioJson() {
+  const editor = document.getElementById('scenarioJsonEditor');
+  if (!editor) return;
+  try {
+    const parsed = JSON.parse(editor.value);
+    if (!parsed.key) throw new Error('Поле "key" обязательно');
+    editorState = {
+      isNew: editorState.isNew,
+      originalKey: editorState.originalKey,
+      key: parsed.key,
+      title: parsed.title || '',
+      description: parsed.description || '',
+      tagsRaw: (parsed.tags || []).join(', '),
+      dependsOn: [...(parsed.dependsOn || [])],
+      vars: Object.entries(parsed.vars || {}).map(([name, value]) => ({ name, value: String(value) })),
+      steps: (parsed.steps || []).map(normalizeStep)
+    };
+    renderEditorForm();
+    toastSuccess('JSON спецификация успешно синхронизирована с графом!');
+    setScenarioEditorMode('graph');
+  } catch (err) {
+    toastError('Ошибка JSON: ' + err.message);
+  }
+}
+window.applyScenarioJson = applyScenarioJson;
+
 function renderEditorForm() {
   const g = id => document.getElementById(id);
   g('scKey').value = editorState.key;
@@ -466,6 +731,8 @@ function renderEditorForm() {
   renderDependsChips();
   renderVarsRows();
   renderSteps();
+  renderScenarioGraph();
+  updateScenarioJson();
   updateModeBadge();
 }
 
@@ -722,6 +989,8 @@ function addStep(type) {
   harvestEditor();
   editorState.steps.push(makeStep(type || 'http'));
   renderSteps();
+  renderScenarioGraph();
+  updateScenarioJson();
 }
 
 function moveStep(idx, delta) {
@@ -731,6 +1000,8 @@ function moveStep(idx, delta) {
   const [moved] = editorState.steps.splice(idx, 1);
   editorState.steps.splice(target, 0, moved);
   renderSteps();
+  renderScenarioGraph();
+  updateScenarioJson();
 }
 
 function dupStep(idx) {
@@ -743,6 +1014,8 @@ function dupStep(idx) {
   clone.id = nid;
   editorState.steps.splice(idx + 1, 0, clone);
   renderSteps();
+  renderScenarioGraph();
+  updateScenarioJson();
 }
 
 function removeStep(idx) {
@@ -750,6 +1023,8 @@ function removeStep(idx) {
   editorState.steps.splice(idx, 1);
   if (!editorState.steps.length) editorState.steps.push(makeStep('http'));
   renderSteps();
+  renderScenarioGraph();
+  updateScenarioJson();
 }
 
 function changeStepType(idx, newType) {
@@ -757,6 +1032,8 @@ function changeStepType(idx, newType) {
   if (editorState.steps[idx].type === newType) return;
   editorState.steps[idx] = convertStep(editorState.steps[idx], newType);
   renderSteps();
+  renderScenarioGraph();
+  updateScenarioJson();
 }
 
 function parseTags(raw) {

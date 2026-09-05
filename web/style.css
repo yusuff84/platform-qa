@@ -362,6 +362,91 @@ html.light .tools-subtab.active {
 }
 
 /* ============================================
+   Interactive Scenario Graph / Pipeline Flow
+   ============================================ */
+.flow-canvas {
+  background-color: #09090b;
+  background-image: radial-gradient(#27272a 1.2px, transparent 1.2px);
+  background-size: 16px 16px;
+  border: 1px solid #27272a;
+  border-radius: 0.75rem;
+  padding: 1.5rem 1rem;
+  overflow-x: auto;
+  min-height: 220px;
+}
+
+html.light .flow-canvas {
+  background-color: #f8fafc !important;
+  background-image: radial-gradient(#cbd5e1 1.2px, transparent 1.2px) !important;
+  border-color: #e4e4e7 !important;
+}
+
+.flow-node {
+  background-color: #121215;
+  border: 1px solid #27272a;
+  border-radius: 0.65rem;
+  min-width: 220px;
+  max-width: 260px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.flow-node:hover {
+  border-color: #52525b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.flow-node.active-node {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
+html.light .flow-node {
+  background-color: #ffffff !important;
+  border-color: #e4e4e7 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+html.light .flow-node:hover {
+  border-color: #a1a1aa !important;
+}
+
+html.light .flow-node.active-node {
+  border-color: #09090b !important;
+  box-shadow: 0 0 0 1px #09090b !important;
+}
+
+.flow-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.flow-line {
+  height: 2px;
+  width: 28px;
+  background-color: #3f3f46;
+}
+
+html.light .flow-line {
+  background-color: #cbd5e1;
+}
+
+.flow-arrow-icon {
+  color: #71717a;
+  font-size: 11px;
+  margin-left: -2px;
+}
+
+html.light .flow-arrow-icon {
+  color: #94a3b8;
+}
+
+/* ============================================
    Mobile Contract Models & Issues (High Contrast)
    ============================================ */
 .mobile-model-card {
